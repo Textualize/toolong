@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "tailless"
+version = "0.1.0"
+description = "A hybrid of tail and less"
+authors = ["Will McGugan <will@textualize.io>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+textual = "^0.47.1"
+click = "^8.1.7"
+
+[tool.poetry.group.dev.dependencies]
+textual-dev = "^1.4.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
