@@ -135,7 +135,7 @@ class LogView(ScrollView):
             self._render_line_cache[index] = strip
             self._max_width = max(self._max_width, strip.cell_length)
 
-        strip = strip.crop_extend(scroll_x, scroll_x + self.size.width, style)
+        strip = strip.crop_extend(scroll_x, scroll_x + width, style)
 
         return strip
 
