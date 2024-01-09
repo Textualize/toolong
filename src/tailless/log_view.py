@@ -2,7 +2,7 @@ from itertools import islice
 import mmap
 import os
 import re
-from typing import NamedTuple, IO, TypeAlias
+from typing import Mapping, TypeAlias
 
 from rich.text import Text
 from rich.highlighter import ReprHighlighter
@@ -11,17 +11,37 @@ from textual import on
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.geometry import Size
+from textual.reactive import reactive
 from textual.scroll_view import ScrollView
 from textual.cache import LRUCache
 from textual.strip import Strip
-from textual.widget import Widget
-from textual.widgets import Label
-from textual.reactive import reactive
+
+
+from textual.suggester import Suggester
 
 from .filter_dialog import FilterDialog
 
 
 OffsetPair: TypeAlias = tuple[int, int]
+
+SPLIT_REGEX = r"[\s/\[\]]"
+
+
+class SearchSuggester(Suggester):
+    def __init__(self, search_index: Mapping[str, str]) -> None:
+        self.search_index = search_index
+        super().__init__(use_cache=False, case_sensitive=True)
+
+    async def get_suggestion(self, value: str) -> str | None:
+        word = re.split(SPLIT_REGEX, value)[-1]
+        start = value[: -len(word)]
+
+        if not word:
+            return None
+        search_hit = self.search_index.get(word.lower(), None)
+        if search_hit is None:
+            return None
+        return start + search_hit
 
 
 class LineKey:
@@ -110,7 +130,7 @@ class MappedFile:
 class LogLines(ScrollView):
     DEFAULT_CSS = """
     LogLines {
-        border: heavy transparent;
+        border: heavy transparent;        
         .loglines--filter-highlight {
             background: $secondary;
             color: auto;
@@ -132,6 +152,8 @@ class LogLines(ScrollView):
         self.mapped_file = MappedFile(file_path)
         self._render_line_cache: LRUCache[int, Strip] = LRUCache(maxsize=1000)
         self._max_width = 0
+        self._search_index: LRUCache[str, str] = LRUCache(maxsize=10000)
+        self._suggester = SearchSuggester(self._search_index)
 
     def clear_caches(self) -> None:
         self._render_line_cache.clear()
@@ -159,6 +181,19 @@ class LogLines(ScrollView):
             text = self.mapped_file.get_text(index)
             text.stylize_before(style)
 
+            search_index = self._search_index
+
+            for word in re.split(SPLIT_REGEX, text.plain):
+                if len(word) <= 1:
+                    continue
+                for offset in range(1, len(word) - 1):
+                    sub_word = word[:offset]
+                    if sub_word in search_index:
+                        if len(search_index[sub_word]) < len(word):
+                            search_index[sub_word.lower()] = word
+                    else:
+                        search_index[sub_word.lower()] = word
+
             if self.find and self.show_find:
                 self.highlight_find(text)
             strip = Strip(text.render(self.app.console), text.cell_len)
@@ -175,6 +210,7 @@ class LogLines(ScrollView):
             try:
                 re.compile(self.find)
             except Exception:
+                # Invalid regex
                 return
             matches = list(
                 re.finditer(
@@ -213,15 +249,7 @@ class LogLines(ScrollView):
 class LogView(Vertical):
     DEFAULT_CSS = """
     LogView {
-        layers: dialogs;
-        .float {
-            layer: dialog;
-            offset-x: 120%;
-            transition: offset 200ms;
-            &.visible {
-                offset-x: 0%;
-            }
-        }
+                
     }
     """
 
@@ -232,8 +260,8 @@ class LogView(Vertical):
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        yield LogLines(self.file_path)
-        yield FilterDialog()
+        yield (log_lines := LogLines(self.file_path))
+        yield FilterDialog(log_lines._suggester)
 
     @on(FilterDialog.Update)
     def filter_dialog_update(self, event: FilterDialog.Update) -> None:

@@ -10,7 +10,8 @@ from .log_view import LogView
 class LogScreen(Screen):
     CSS = """
     LogScreen {
-        TabPane {
+        
+        & TabPane {           
             padding: 0;
         }
     }
