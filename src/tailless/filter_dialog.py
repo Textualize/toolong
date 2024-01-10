@@ -30,6 +30,8 @@ class FilterDialog(Widget, can_focus_children=True):
     """
     BINDINGS = [
         Binding("escape", "dismiss_find", "Dismiss"),
+        Binding("down", "pointer_down", "Next"),
+        Binding("up", "pointer_up", "Previous"),
     ]
     DEFAULT_CLASSES = "float"
     BORDER_TITLE = "Find"
@@ -42,6 +44,10 @@ class FilterDialog(Widget, can_focus_children=True):
 
     class Dismiss(Message):
         pass
+
+    @dataclass
+    class MovePointer(Message):
+        direction: int = 1
 
     def __init__(self, suggester: Suggester) -> None:
         self.suggester = suggester
@@ -66,8 +72,14 @@ class FilterDialog(Widget, can_focus_children=True):
         )
         self.post_message(update)
 
+    def allow_focus_children(self) -> bool:
+        return self.has_class("visible")
+
     def action_dismiss_find(self) -> None:
         self.post_message(FilterDialog.Dismiss())
 
-    def allow_focus_children(self) -> bool:
-        return self.has_class("visible")
+    def action_pointer_down(self) -> None:
+        self.post_message(self.MovePointer(direction=+1))
+
+    def action_pointer_up(self) -> None:
+        self.post_message(self.MovePointer(direction=-1))

@@ -6,6 +6,7 @@ from typing import Mapping, TypeAlias
 
 from rich.text import Text
 from rich.highlighter import ReprHighlighter
+from rich.segment import Segment
 
 from textual import on
 from textual.app import ComposeResult
@@ -14,6 +15,7 @@ from textual.geometry import Size
 from textual.reactive import reactive
 from textual.scroll_view import ScrollView
 from textual.cache import LRUCache
+
 from textual.strip import Strip
 
 
@@ -146,6 +148,10 @@ class LogLines(ScrollView):
     find = reactive("")
     case_sensitive = reactive(False)
     regex = reactive(False)
+    show_gutter = reactive(False)
+    pointer_line: reactive[int | None] = reactive(None)
+
+    GUTTER_WIDTH = 2
 
     def __init__(self, file_path: str) -> None:
         super().__init__()
@@ -154,6 +160,11 @@ class LogLines(ScrollView):
         self._max_width = 0
         self._search_index: LRUCache[str, str] = LRUCache(maxsize=10000)
         self._suggester = SearchSuggester(self._search_index)
+        self.icons: dict[int, str] = {}
+
+    @property
+    def line_count(self) -> int:
+        return self.mapped_file.line_count
 
     def clear_caches(self) -> None:
         self._render_line_cache.clear()
@@ -202,6 +213,15 @@ class LogLines(ScrollView):
 
         strip = strip.crop_extend(scroll_x, scroll_x + width, style)
 
+        if self.show_gutter:
+            if self.pointer_line is not None and index == self.pointer_line:
+                icon = "👉"
+            else:
+                icon = self.icons.get(index, " ")
+            icon_strip = Strip([Segment(icon)])
+            icon_strip = icon_strip.adjust_cell_length(3)
+            strip = Strip.join([icon_strip, strip])
+
         return strip
 
     def highlight_find(self, text: Text) -> None:
@@ -230,13 +250,61 @@ class LogLines(ScrollView):
             ):
                 text.stylize("dim")
 
+    def check_match(self, line: str) -> bool:
+        if self.regex:
+            return (
+                re.match(
+                    self.find, line, flags=0 if self.case_sensitive else re.IGNORECASE
+                )
+                is not None
+            )
+        else:
+            if self.case_sensitive:
+                return self.find in line
+            else:
+                return self.find.lower() in line.lower()
+
+    def advance_search(self, direction: int = 1) -> None:
+        if not self.find:
+            self.pointer_line = None
+            self.show_gutter = False
+        start_line = (
+            self.scroll_offset.y
+            if self.pointer_line is None
+            else self.pointer_line + direction
+        )
+        if direction == 1:
+            line_range = range(start_line, self.line_count)
+        else:
+            line_range = range(start_line, 0, -1)
+
+        check_match = self.check_match
+        for line_no in line_range:
+            line = self.mapped_file.get_line(line_no)
+            if check_match(line):
+                self.pointer_line = line_no
+                y_offset = self.pointer_line - self.content_size.height // 2
+                self.scroll_to(
+                    y=y_offset,
+                    animate=abs(y_offset - self.scroll_offset.y) > 1,
+                    duration=0.1,
+                )
+                self.refresh()
+                break
+
     def on_idle(self) -> None:
-        self.virtual_size = Size(self._max_width, self.mapped_file.line_count)
+        self.virtual_size = Size(
+            self._max_width + self.GUTTER_WIDTH if self.show_gutter else 0,
+            self.mapped_file.line_count,
+        )
 
     def watch_show_find(self) -> None:
         self.clear_caches()
 
-    def watch_find(self) -> None:
+    def watch_find(self, find: str) -> None:
+        if not find:
+            self.pointer_line = None
+            self.show_gutter = False
         self.clear_caches()
 
     def watch_case_sensitive(self) -> None:
@@ -282,7 +350,16 @@ class LogView(Vertical):
     @on(FilterDialog.Dismiss)
     def dismiss_filter_dialog(self, event: FilterDialog.Dismiss) -> None:
         event.stop()
+        log_lines = self.query_one(LogLines)
         self.show_find = False
+        log_lines.show_gutter = False
+
+    @on(FilterDialog.MovePointer)
+    def move_pointer(self, event: FilterDialog.MovePointer) -> None:
+        event.stop()
+        log_lines = self.query_one(LogLines)
+        log_lines.show_gutter = True
+        log_lines.advance_search(event.direction)
 
 
 if __name__ == "__main__":
