@@ -308,7 +308,9 @@ class LogLines(ScrollView):
             line = self.mapped_file.get_line(line_no)
             if check_match(line):
                 self.pointer_line = line_no
-                y_offset = self.pointer_line - self.content_size.height // 2
+                y_offset = (
+                    self.pointer_line - self.scrollable_content_region.height // 2
+                )
                 if self.pointer_line < scroll_y or self.pointer_line > max_scroll_y:
                     self.scroll_to(
                         y=y_offset,
