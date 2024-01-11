@@ -17,7 +17,10 @@ class LogScreen(Screen):
     }
     """
 
-    BINDINGS = [("ctrl+f", "toggle_find", "Find")]
+    BINDINGS = [
+        ("ctrl+f", "toggle_find", "Find"),
+        ("ctrl+t", "toggle_timestamps", "Timestamps"),
+    ]
 
     def compose(self) -> ComposeResult:
         assert isinstance(self.app, UI)
@@ -32,6 +35,12 @@ class LogScreen(Screen):
         pane = tabbed_content.get_pane(tabbed_content.active)
         log_view = pane.query_one(LogView)
         log_view.show_find = not log_view.show_find
+
+    def action_toggle_timestamps(self):
+        tabbed_content = self.query_one(TabbedContent)
+        pane = tabbed_content.get_pane(tabbed_content.active)
+        log_view = pane.query_one(LogView)
+        log_view.show_timestamps = not log_view.show_timestamps
 
 
 class UI(App):
