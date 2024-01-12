@@ -1,19 +1,15 @@
-from datetime import datetime
-from itertools import islice
-import mmap
-import os
+from dataclasses import dataclass
 import re
-from typing import Mapping, TypeAlias
+from typing import Mapping
 
 from rich.text import Text
-from rich.highlighter import ReprHighlighter
 from rich.segment import Segment
 
 from textual import on
 from textual.app import ComposeResult
-from textual.color import Color
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical
 from textual.geometry import Size
+from textual.message import Message
 from textual.reactive import reactive
 from textual.scroll_view import ScrollView
 from textual.cache import LRUCache
@@ -24,10 +20,8 @@ from textual.strip import Strip
 from textual.suggester import Suggester
 
 from .filter_dialog import FilterDialog
-from .highlighter import LogHighlighter
-from .timestamps import parse_extract
-
-OffsetPair: TypeAlias = tuple[int, int]
+from .line_panel import LinePanel
+from .mapped_file import MappedFile
 
 SPLIT_REGEX = r"[\s/\[\]]"
 
@@ -69,86 +63,6 @@ class LineKey:
     highlighted: bool
 
 
-class MappedFile:
-    def __init__(self, path: str) -> None:
-        self.path = path
-        self.fileno: int | None = None
-        self._mmap: mmap.mmap | None = None
-        self.size = 0
-        self._lines: list[OffsetPair] = []
-        self._line_breaks: list[int] = []
-        self._line_offsets: list[OffsetPair] = []
-        self._line_cache: LRUCache[int, str] = LRUCache(1000)
-        self._text_cache: LRUCache[int, tuple[Text, datetime | None]] = LRUCache(1000)
-        self.highlighter = LogHighlighter()
-
-    @property
-    def line_count(self) -> int:
-        return len(self._line_offsets)
-
-    def is_open(self) -> bool:
-        return self.fileno is not None
-
-    def open(self) -> bool:
-        try:
-            self.fileno = os.open(self.path, os.O_RDWR)
-        except IOError:
-            return False
-        self._mmap = mmap.mmap(self.fileno, 0, flags=mmap.PROT_READ)
-        self.size = len(self._mmap)
-        return True
-
-    def close(self) -> None:
-        self._mmap = None
-        if self.fileno is not None:
-            os.close(self.fileno)
-            self.fileno = None
-
-    def get_raw(self, start: int, end: int) -> bytes:
-        return self._mmap[start:end]
-
-    def get_line(self, line_index: int) -> str:
-        try:
-            line = self._line_cache[line_index]
-        except KeyError:
-            start, end = self._line_offsets[line_index]
-            line_bytes = self.get_raw(start, end)
-            line = line_bytes.decode("utf-8", errors="replace")
-            self._line_cache[line_index] = line
-        return line
-
-    def get_text(self, line_index: int) -> tuple[Text, datetime | None]:
-        try:
-            text, timestamp = self._text_cache[line_index]
-        except KeyError:
-            line = self.get_line(line_index).rstrip("\n")
-            _, line, timestamp = parse_extract(line)
-            text = Text(line)
-            text = self.highlighter(text)
-            text.expand_tabs(4)
-            self._text_cache[line_index] = (text, timestamp)
-        return text.copy(), timestamp
-
-    def _scan_line_breaks(self, start: int, end: int) -> list[int]:
-        assert self._mmap is not None
-        chunk = self._mmap[start:end]
-        offset = 0
-        offsets: list[int] = []
-        while offset := chunk.find(b"\n", offset) + 1:
-            offsets.append(offset + start)
-        return offsets
-
-    def scan_block(self, start: int, end: int):
-        self._line_breaks.extend(self._scan_line_breaks(start, end))
-        if start == 0:
-            self._line_breaks.append(start)
-
-        offsets = [
-            pair for pair in zip(self._line_breaks, islice(self._line_breaks, 1, None))
-        ]
-        self._line_offsets[:] = offsets
-
-
 class LogLines(ScrollView):
     DEFAULT_CSS = """
     LogLines {
@@ -173,6 +87,13 @@ class LogLines(ScrollView):
     show_timestamps: reactive[bool] = reactive(True)
 
     GUTTER_WIDTH = 2
+
+    @dataclass
+    class PointerMoved(Message):
+        pointer_line: int | None
+
+        def can_replace(self, message: Message) -> bool:
+            return isinstance(message, LogLines.PointerMoved)
 
     def __init__(self, file_path: str) -> None:
         super().__init__()
@@ -210,7 +131,7 @@ class LogLines(ScrollView):
         try:
             strip = self._render_line_cache[index]
         except KeyError:
-            text, timestamp = self.mapped_file.get_text(index)
+            line, text, timestamp = self.mapped_file.get_text(index)
             if timestamp is not None and self.show_timestamps:
                 text = Text.assemble((f"{timestamp} ", "bold  magenta"), text)
             text.stylize_before(style)
@@ -308,17 +229,16 @@ class LogLines(ScrollView):
             line = self.mapped_file.get_line(line_no)
             if check_match(line):
                 self.pointer_line = line_no
-                y_offset = (
-                    self.pointer_line - self.scrollable_content_region.height // 2
-                )
-                if self.pointer_line < scroll_y or self.pointer_line > max_scroll_y:
-                    self.scroll_to(
-                        y=y_offset,
-                        animate=abs(y_offset - self.scroll_offset.y) > 1,
-                        duration=0.2,
-                    )
-                self.refresh()
                 break
+        if self.pointer_line is not None and (
+            self.pointer_line < scroll_y or self.pointer_line > max_scroll_y
+        ):
+            y_offset = self.pointer_line - self.scrollable_content_region.height // 2
+            self.scroll_to(
+                y=y_offset,
+                animate=abs(y_offset - self.scroll_offset.y) > 1,
+                duration=0.2,
+            )
 
     def on_idle(self) -> None:
         self.virtual_size = Size(
@@ -353,6 +273,9 @@ class LogLines(ScrollView):
     def watch_show_timestamps(self) -> None:
         self.clear_caches()
 
+    def watch_pointer_line(self, pointer_line: int | None) -> None:
+        self.post_message(LogLines.PointerMoved(pointer_line))
+
     # def watch_scroll_y(self, old_value: float, new_value: float) -> None:
     #     if self.pointer_line is None:
     #         return
@@ -363,10 +286,15 @@ class LogLines(ScrollView):
     #         self.pointer_line = scroll_y + self.content_size.height - 1
 
 
-class LogView(Vertical):
+class LogView(Horizontal):
     DEFAULT_CSS = """
     LogView {
-                
+        LogLines {
+            width: 1fr;
+        } 
+        LinePanel {
+            width: 1fr;
+        }
     }
     """
 
@@ -379,6 +307,7 @@ class LogView(Vertical):
 
     def compose(self) -> ComposeResult:
         yield (log_lines := LogLines(self.file_path))
+        yield LinePanel(log_lines.mapped_file)
         yield FilterDialog(log_lines._suggester)
 
     @on(FilterDialog.Update)
@@ -413,6 +342,15 @@ class LogView(Vertical):
         log_lines = self.query_one(LogLines)
         log_lines.show_gutter = True
         log_lines.advance_search(event.direction)
+
+    @on(LogLines.PointerMoved)
+    def pointer_moved(self, event: LogLines.PointerMoved):
+        line_panel = self.query_one(LinePanel)
+        if event.pointer_line is None:
+            line_panel.display = False
+        else:
+            line_panel.display = True
+            line_panel.line_no = event.pointer_line
 
 
 if __name__ == "__main__":
