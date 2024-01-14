@@ -4,13 +4,15 @@ from typing import Mapping
 
 from rich.text import Text
 from rich.segment import Segment
+from rich.style import Style
 
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
+from textual import events
 from textual.geometry import Size
 from textual.message import Message
-from textual.reactive import reactive
+from textual.reactive import reactive, var
 from textual.scroll_view import ScrollView
 from textual.cache import LRUCache
 
@@ -22,23 +24,9 @@ from textual.suggester import Suggester
 from .filter_dialog import FilterDialog
 from .line_panel import LinePanel
 from .mapped_file import MappedFile
+from .watcher import Watcher
 
 SPLIT_REGEX = r"[\s/\[\]]"
-
-COLORS = [
-    "#881177",
-    "#aa3355",
-    "#cc6666",
-    "#ee9944",
-    "#eedd00",
-    "#99dd55",
-    "#44dd88",
-    "#22ccbb",
-    "#00bbcc",
-    "#0099cc",
-    "#3366bb",
-    "#663399",
-]
 
 
 class SearchSuggester(Suggester):
@@ -71,12 +59,15 @@ class LogLines(ScrollView):
             background: $secondary;
             color: auto;
         }
+        .loglines--pointer-highlight {
+            background: $primary;
+        }
         &:focus {
             border: heavy $accent;
         }
     }
     """
-    COMPONENT_CLASSES = {"loglines--filter-highlight"}
+    COMPONENT_CLASSES = {"loglines--filter-highlight", "loglines--pointer-highlight"}
 
     show_find = reactive(False)
     find = reactive("")
@@ -85,6 +76,7 @@ class LogLines(ScrollView):
     show_gutter = reactive(False)
     pointer_line: reactive[int | None] = reactive(None)
     show_timestamps: reactive[bool] = reactive(True)
+    is_scrolling: reactive[int] = reactive(int)
 
     GUTTER_WIDTH = 2
 
@@ -95,10 +87,11 @@ class LogLines(ScrollView):
         def can_replace(self, message: Message) -> bool:
             return isinstance(message, LogLines.PointerMoved)
 
-    def __init__(self, file_path: str) -> None:
+    def __init__(self, watcher: Watcher, file_path: str) -> None:
         super().__init__()
-        self.mapped_file = MappedFile(file_path)
-        self._render_line_cache: LRUCache[int, Strip] = LRUCache(maxsize=1000)
+        self.watcher = watcher
+        self.mapped_file = MappedFile(watcher, file_path)
+        self._render_line_cache: LRUCache[object, Strip] = LRUCache(maxsize=1000)
         self._max_width = 0
         self._search_index: LRUCache[str, str] = LRUCache(maxsize=10000)
         self._suggester = SearchSuggester(self._search_index)
@@ -128,13 +121,23 @@ class LogLines(ScrollView):
         width, height = self.size
         if index >= self.mapped_file.line_count:
             return Strip.blank(width, style)
+
+        is_pointer = self.pointer_line is not None and index == self.pointer_line
+        cache_key = (index, is_pointer)
+
         try:
-            strip = self._render_line_cache[index]
+            strip = self._render_line_cache[cache_key]
         except KeyError:
             line, text, timestamp = self.mapped_file.get_text(index)
             if timestamp is not None and self.show_timestamps:
                 text = Text.assemble((f"{timestamp} ", "bold  magenta"), text)
             text.stylize_before(style)
+
+            if is_pointer:
+                pointer_style = self.get_component_rich_style(
+                    "loglines--pointer-highlight"
+                )
+                text.stylize(Style(bgcolor=pointer_style.bgcolor, bold=True))
 
             search_index = self._search_index
 
@@ -153,9 +156,13 @@ class LogLines(ScrollView):
                 self.highlight_find(text)
             strip = Strip(text.render(self.app.console), text.cell_len)
             self._max_width = max(self._max_width, strip.cell_length)
-            self._render_line_cache[index] = strip
+            self._render_line_cache[cache_key] = strip
 
-        strip = strip.crop_extend(scroll_x, scroll_x + width, style)
+        if is_pointer:
+            pointer_style = self.get_component_rich_style("loglines--pointer-highlight")
+            strip = strip.crop_extend(scroll_x, scroll_x + width, pointer_style)
+        else:
+            strip = strip.crop_extend(scroll_x, scroll_x + width, None)
 
         if self.show_gutter:
             if self.pointer_line is not None and index == self.pointer_line:
@@ -234,10 +241,16 @@ class LogLines(ScrollView):
             self.pointer_line < scroll_y or self.pointer_line > max_scroll_y
         ):
             y_offset = self.pointer_line - self.scrollable_content_region.height // 2
+            self.is_scrolling += 1
+
+            async def on_complete():
+                self.is_scrolling -= 1
+
             self.scroll_to(
                 y=y_offset,
                 animate=abs(y_offset - self.scroll_offset.y) > 1,
                 duration=0.2,
+                on_complete=on_complete,
             )
 
     def on_idle(self) -> None:
@@ -245,7 +258,7 @@ class LogLines(ScrollView):
             self._max_width + (self.GUTTER_WIDTH if self.show_gutter else 0),
             self.mapped_file.line_count,
         )
-        if self.pointer_line is not None:
+        if self.pointer_line is not None and not self.is_scrolling:
             scroll_y = self.scroll_offset.y
             if self.pointer_line < scroll_y:
                 self.pointer_line = scroll_y
@@ -276,37 +289,42 @@ class LogLines(ScrollView):
     def watch_pointer_line(self, pointer_line: int | None) -> None:
         self.post_message(LogLines.PointerMoved(pointer_line))
 
-    # def watch_scroll_y(self, old_value: float, new_value: float) -> None:
-    #     if self.pointer_line is None:
-    #         return
-    #     scroll_y = self.scroll_offset.y
-    #     if self.pointer_line < scroll_y:
-    #         self.pointer_line = scroll_y
-    #     elif self.pointer_line >= scroll_y + self.container_size.height:
-    #         self.pointer_line = scroll_y + self.content_size.height - 1
+    def on_click(self, event: events.Click) -> None:
+        if self.show_find:
+            self.show_gutter = True
+            self.pointer_line = event.y + self.scroll_offset.y - self.gutter.top
 
 
 class LogView(Horizontal):
     DEFAULT_CSS = """
     LogView {
+        &.show-panel {
+            LinePanel {
+                display: block;
+            }
+        }
+
         LogLines {
-            width: 1fr;
+            width: 1fr;            
         } 
+        
         LinePanel {
             width: 1fr;
+            display: none;
         }
     }
     """
 
     show_find = reactive(False)
     show_timestamps = reactive(True)
+    show_panel = reactive(False)
 
     def __init__(self, file_path: str) -> None:
         self.file_path = file_path
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        yield (log_lines := LogLines(self.file_path))
+        yield (log_lines := LogLines(self.app.watcher, self.file_path))
         yield LinePanel(log_lines.mapped_file)
         yield FilterDialog(log_lines._suggester)
 
@@ -329,6 +347,9 @@ class LogView(Horizontal):
     def watch_show_timestamps(self, show_timestamps: bool) -> None:
         self.query_one(LogLines).show_timestamps = show_timestamps
 
+    def watch_show_panel(self, show_panel: bool) -> None:
+        self.set_class(show_panel, "show-panel")
+
     @on(FilterDialog.Dismiss)
     def dismiss_filter_dialog(self, event: FilterDialog.Dismiss) -> None:
         event.stop()
@@ -343,13 +364,16 @@ class LogView(Horizontal):
         log_lines.show_gutter = True
         log_lines.advance_search(event.direction)
 
+    @on(FilterDialog.SelectLine)
+    def select_line(self) -> None:
+        self.show_panel = not self.show_panel
+
     @on(LogLines.PointerMoved)
     def pointer_moved(self, event: LogLines.PointerMoved):
         line_panel = self.query_one(LinePanel)
         if event.pointer_line is None:
-            line_panel.display = False
+            self.show_panel = False
         else:
-            line_panel.display = True
             line_panel.line_no = event.pointer_line
 
 

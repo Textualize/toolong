@@ -13,6 +13,9 @@ from .mapped_file import MappedFile
 class LineDisplay(Widget):
     DEFAULT_CSS = """
     LineDisplay {
+        border: panel $primary;
+        border-title-color: $foreground;
+        padding: 1;
         Label {
             width: 1fr;
         }
@@ -23,6 +26,8 @@ class LineDisplay(Widget):
         self.line = line
         self.text = text
         super().__init__()
+        if timestamp is not None:
+            self.border_title = f"🕒 {timestamp.ctime()}"
 
     def compose(self) -> ComposeResult:
         yield Label(self.text)
@@ -32,7 +37,7 @@ class LinePanel(Widget):
     DEFAULT_CSS = """
     LinePanel {
         background: $panel;
-        padding: 1 2;
+        padding: 1 0;
     }
     """
     line_no = reactive(0)

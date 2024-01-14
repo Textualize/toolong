@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from textual.screen import Screen
 from textual.widgets import Footer, TabbedContent, TabPane
 
 from .log_view import LogView
+from .watcher import Watcher
 
 
 class LogScreen(Screen):
@@ -18,8 +20,8 @@ class LogScreen(Screen):
     """
 
     BINDINGS = [
-        ("ctrl+f", "toggle_find", "Find"),
-        ("ctrl+t", "toggle_timestamps", "Timestamps"),
+        Binding("ctrl+f", "toggle_find", "Find"),
+        Binding("ctrl+t", "toggle_timestamps", "Timestamps"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -52,7 +54,12 @@ class UI(App):
 
     def __init__(self, file_paths: list[str]) -> None:
         self.file_paths = file_paths
+        self.watcher = Watcher()
         super().__init__()
 
     def on_mount(self) -> None:
         self.push_screen(LogScreen())
+        self.watcher.start()
+
+    def on_unmount(self) -> None:
+        self.watcher.close()

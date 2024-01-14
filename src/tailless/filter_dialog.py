@@ -49,6 +49,9 @@ class FilterDialog(Widget, can_focus_children=True):
     class MovePointer(Message):
         direction: int = 1
 
+    class SelectLine(Message):
+        pass
+
     def __init__(self, suggester: Suggester) -> None:
         self.suggester = suggester
         super().__init__()
@@ -63,6 +66,11 @@ class FilterDialog(Widget, can_focus_children=True):
     def input_change(self, event: Input.Changed) -> None:
         event.stop()
         self.post_update()
+
+    @on(Input.Submitted)
+    def input_submitted(self, event: Input.Changed) -> None:
+        event.stop()
+        self.post_message(self.SelectLine())
 
     def post_update(self) -> None:
         update = FilterDialog.Update(
