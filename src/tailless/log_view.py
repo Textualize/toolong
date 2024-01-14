@@ -65,6 +65,7 @@ class LogLines(ScrollView):
         &:focus {
             border: heavy $accent;
         }
+        border-subtitle-color: $foreground;
     }
     """
     COMPONENT_CLASSES = {"loglines--filter-highlight", "loglines--pointer-highlight"}
@@ -96,6 +97,7 @@ class LogLines(ScrollView):
         self._search_index: LRUCache[str, str] = LRUCache(maxsize=10000)
         self._suggester = SearchSuggester(self._search_index)
         self.icons: dict[int, str] = {}
+        self.border_subtitle = "+100 lines"
 
     @property
     def line_count(self) -> int:
