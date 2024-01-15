@@ -76,12 +76,19 @@ class InfoOverlay(Widget):
         background: $panel;
         color: $success;
         padding: 0 1;
+
+        &:hover {
+            background: $success;
+            color: auto 90%;
+            text-style: bold ;
+        }
     }
     """
 
     message = reactive("")
 
     def compose(self) -> ComposeResult:
+        self.tooltip = "Click to tail file"
         with Horizontal():
             yield Label(" +100 lines ")
 
@@ -137,6 +144,7 @@ class LogLines(ScrollView):
     show_timestamps: reactive[bool] = reactive(True)
     is_scrolling: reactive[int] = reactive(int)
     pending_lines: reactive[int] = reactive[int]
+    tail: reactive[bool] = reactive(True)
 
     GUTTER_WIDTH = 2
 
@@ -396,7 +404,7 @@ class LogView(Horizontal):
         LinePanel {
             width: 1fr;
             display: none;
-        }
+        }        
     }
     """
 
