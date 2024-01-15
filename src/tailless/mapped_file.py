@@ -1,7 +1,7 @@
 from datetime import datetime
 import mmap
 import os
-
+from typing import IO, Iterable
 
 from rich.text import Text
 from textual.cache import LRUCache
@@ -13,13 +13,12 @@ from .watcher import Watcher, WatchedFile
 
 
 class MappedFile:
-    def __init__(self, watcher: Watcher, path: str) -> None:
-        self.watcher = watcher
+    def __init__(self, path: str) -> None:
         self.path = path
-        self.fileno: int | None = None
-        self._mmap: mmap.mmap | None = None
+        self.file: IO[bytes] | None
         self.size = 0
         self._line_breaks: list[int] = []
+        self._pending_line_breaks: list[int] = []
         self._line_cache: LRUCache[int, str] = LRUCache(1000)
         self._text_cache: LRUCache[int, tuple[str, Text, datetime | None]] = LRUCache(
             1000
@@ -33,14 +32,14 @@ class MappedFile:
     def is_open(self) -> bool:
         return self.fileno is not None
 
-    def open(self) -> bool:
+    def open(self, size: int = 0) -> bool:
         try:
-            self.fileno = os.open(self.path, os.O_RDWR)
+            self.file = open(self.path, "rb")
         except IOError:
             raise
             return False
-        self.size = self.watcher.add(self.path, self._file_updated, self._file_error)
-        self._mmap = mmap.mmap(self.fileno, self.size, flags=mmap.PROT_READ)
+
+        self.size = size
 
         return True
 
@@ -51,15 +50,13 @@ class MappedFile:
         pass
 
     def close(self) -> None:
-        self._mmap = None
-        if self.fileno is not None:
-            os.close(self.fileno)
-            self.fileno = None
+        if self.file is not None:
+            self.file.close()
 
     def get_raw(self, start: int, end: int) -> bytes:
-        assert self._mmap is not None
-        raw_data = self._mmap[start : min(end, self.size - 1)]
-        return raw_data
+        assert self.file is not None
+        self.file.seek(start)
+        return self.file.read(end - start)
 
     def get_line(self, line_index: int) -> str:
         try:
@@ -88,13 +85,21 @@ class MappedFile:
             self._text_cache[line_index] = (line, text, timestamp)
         return line, text.copy(), timestamp
 
+    def _read_chunks(self, start: int, end: int) -> Iterable[bytes]:
+        _chunk_size = 1024 * 32
+        for position in range(start, end, 1024 * 32):
+            chunk = self.get_raw(position, min(position + _chunk_size, end))
+            yield chunk
+
     def _scan_line_breaks(self, start: int, end: int) -> list[int]:
-        assert self._mmap is not None
-        chunk = self._mmap[start:end]
+        chunk = self.get_raw(start, end)
+
         offset = 0
         offsets: list[int] = []
-        while offset := chunk.find(b"\n", offset) + 1:
-            offsets.append(offset + start)
+        for chunk in self._read_chunks(start, end):
+            while offset := chunk.find(b"\n", offset) + 1:
+                offsets.append(offset + start)
+
         return offsets
 
     def scan_block(self, start: int, end: int):
@@ -102,3 +107,6 @@ class MappedFile:
         if start == 0:
             self._line_breaks.append(start)
         self._line_breaks.sort()
+
+    def scan_pending_block(self, start: int, end: int) -> None:
+        self._pending_line_breaks.extend(self._scan_line_breaks(start, end))

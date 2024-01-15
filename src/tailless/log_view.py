@@ -7,7 +7,7 @@ from rich.segment import Segment
 from rich.style import Style
 
 from textual import on
-from textual.app import ComposeResult
+from textual.app import ComposeResult, RenderResult
 from textual.containers import Horizontal, Vertical
 from textual import events
 from textual.geometry import Size
@@ -15,6 +15,9 @@ from textual.message import Message
 from textual.reactive import reactive, var
 from textual.scroll_view import ScrollView
 from textual.cache import LRUCache
+from textual.widget import Widget
+from textual.widgets import Label
+
 
 from textual.strip import Strip
 
@@ -24,7 +27,7 @@ from textual.suggester import Suggester
 from .filter_dialog import FilterDialog
 from .line_panel import LinePanel
 from .mapped_file import MappedFile
-from .watcher import Watcher
+from .watcher import Watcher, WatchedFile
 
 SPLIT_REGEX = r"[\s/\[\]]"
 
@@ -51,6 +54,57 @@ class LineKey:
     highlighted: bool
 
 
+class InfoOverlay(Widget):
+    DEFAULT_CSS = """
+    InfoOverlay {
+        display: none;
+        dock: bottom;        
+        layer: overlay;
+        width: 1fr;
+        visibility: hidden;        
+    }
+
+    InfoOverlay Horizontal {
+        width: 1fr;
+        align: center bottom;
+    }
+    
+    InfoOverlay Label {
+        visibility: visible;
+        width: auto;
+        height: 1;
+        background: $panel;
+        color: $success;
+        padding: 0 1;
+    }
+    """
+
+    message = reactive("")
+
+    def compose(self) -> ComposeResult:
+        with Horizontal():
+            yield Label(" +100 lines ")
+
+    def watch_message(self, message: str) -> None:
+        self.query_one(Label).update(message)
+        self.display = bool(message)
+
+
+@dataclass
+class SizeChanged(Message, bubble=False):
+    size: int
+
+
+@dataclass
+class FileError(Message, bubble=False):
+    error: Exception
+
+
+@dataclass
+class PendingLines(Message):
+    count: int
+
+
 class LogLines(ScrollView):
     DEFAULT_CSS = """
     LogLines {
@@ -65,10 +119,14 @@ class LogLines(ScrollView):
         &:focus {
             border: heavy $accent;
         }
-        border-subtitle-color: $foreground;
+        border-subtitle-color: $success;
+        border-subtitle-align: center;        
     }
     """
-    COMPONENT_CLASSES = {"loglines--filter-highlight", "loglines--pointer-highlight"}
+    COMPONENT_CLASSES = {
+        "loglines--filter-highlight",
+        "loglines--pointer-highlight",
+    }
 
     show_find = reactive(False)
     find = reactive("")
@@ -78,6 +136,7 @@ class LogLines(ScrollView):
     pointer_line: reactive[int | None] = reactive(None)
     show_timestamps: reactive[bool] = reactive(True)
     is_scrolling: reactive[int] = reactive(int)
+    pending_lines: reactive[int] = reactive[int]
 
     GUTTER_WIDTH = 2
 
@@ -91,13 +150,15 @@ class LogLines(ScrollView):
     def __init__(self, watcher: Watcher, file_path: str) -> None:
         super().__init__()
         self.watcher = watcher
-        self.mapped_file = MappedFile(watcher, file_path)
+        self.file_path = file_path
+        self.mapped_file = MappedFile(file_path)
         self._render_line_cache: LRUCache[object, Strip] = LRUCache(maxsize=1000)
         self._max_width = 0
         self._search_index: LRUCache[str, str] = LRUCache(maxsize=10000)
         self._suggester = SearchSuggester(self._search_index)
         self.icons: dict[int, str] = {}
-        self.border_subtitle = "+100 lines"
+        self.scanned_size = 0
+        self.file_size = 0
 
     @property
     def line_count(self) -> int:
@@ -110,8 +171,19 @@ class LogLines(ScrollView):
         self.clear_caches()
 
     def on_mount(self) -> None:
-        self.mapped_file.open()
-        self.mapped_file.scan_block(0, self.mapped_file.size)
+        def size_changed(watched_file: WatchedFile) -> None:
+            """Callback when the file changes size."""
+            self.post_message(SizeChanged(watched_file.size))
+
+        def watch_error(watched_file: WatchedFile, error: Exception) -> None:
+            """Callback when there is an error watching the file."""
+            self.post_message(FileError(error))
+
+        size = self.watcher.add(self.file_path, size_changed, watch_error)
+        self.scanned_size = size
+        self.file_size = size
+        self.mapped_file.open(size)
+        self.mapped_file.scan_block(0, size)
 
     def on_unmount(self) -> None:
         self.mapped_file.close()
@@ -267,6 +339,10 @@ class LogLines(ScrollView):
             elif self.pointer_line >= scroll_y + self.scrollable_content_region.height:
                 self.pointer_line = scroll_y + self.scrollable_content_region.height - 1
 
+    def update_block(self, start: int, end: int) -> None:
+        self.mapped_file.scan_block(start, end)
+        self.pending_lines = len(self.mapped_file._pending_line_breaks)
+
     def watch_show_find(self, show_find: bool) -> None:
         self.clear_caches()
         if not show_find:
@@ -295,6 +371,13 @@ class LogLines(ScrollView):
         if self.show_find:
             self.show_gutter = True
             self.pointer_line = event.y + self.scroll_offset.y - self.gutter.top
+
+    @on(SizeChanged)
+    def on_size_changed(self, event: SizeChanged) -> None:
+        self.file_size = event.size
+        self.mapped_file.scan_pending_block(self.scanned_size, event.size)
+        self.scanned_size = event.size
+        self.post_message(PendingLines(len(self.mapped_file._pending_line_breaks)))
 
 
 class LogView(Horizontal):
@@ -329,6 +412,7 @@ class LogView(Horizontal):
         yield (log_lines := LogLines(self.app.watcher, self.file_path))
         yield LinePanel(log_lines.mapped_file)
         yield FilterDialog(log_lines._suggester)
+        yield InfoOverlay()
 
     @on(FilterDialog.Update)
     def filter_dialog_update(self, event: FilterDialog.Update) -> None:
@@ -377,6 +461,10 @@ class LogView(Horizontal):
             self.show_panel = False
         else:
             line_panel.line_no = event.pointer_line
+
+    @on(PendingLines)
+    def on_pending_lines(self, event: PendingLines) -> None:
+        self.query_one(InfoOverlay).message = f"+{event.count:,} lines"
 
 
 if __name__ == "__main__":
