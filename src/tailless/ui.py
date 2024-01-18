@@ -39,7 +39,7 @@ class LogScreen(Screen):
         with TabbedContent():
             for path in self.app.file_paths:
                 with TabPane(path):
-                    yield LogView(path)
+                    yield LogView(path, self.app.watcher)
         yield Footer()
 
     def action_toggle_find(self) -> None:

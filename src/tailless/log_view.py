@@ -383,7 +383,7 @@ class LogLines(ScrollView):
     @on(SizeChanged)
     def on_size_changed(self, event: SizeChanged) -> None:
         self.file_size = event.size
-        self.mapped_file.scan_pending_block(self.scanned_size, event.size)
+        # self.mapped_file.scan_pending_block(self.scanned_size, event.size)
         self.scanned_size = event.size
         self.post_message(PendingLines(len(self.mapped_file._pending_line_breaks)))
 
@@ -412,12 +412,13 @@ class LogView(Horizontal):
     show_timestamps = reactive(True)
     show_panel = reactive(False)
 
-    def __init__(self, file_path: str) -> None:
+    def __init__(self, file_path: str, watcher: Watcher) -> None:
         self.file_path = file_path
+        self.watcher = watcher
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        yield (log_lines := LogLines(self.app.watcher, self.file_path))
+        yield (log_lines := LogLines(self.watcher, self.file_path))
         yield LinePanel(log_lines.mapped_file)
         yield FilterDialog(log_lines._suggester)
         yield InfoOverlay()
