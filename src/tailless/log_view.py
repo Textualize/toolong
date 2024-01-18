@@ -1,5 +1,7 @@
 from dataclasses import dataclass
+from datetime import datetime
 import re
+import time
 from typing import Mapping
 
 from rich.text import Text
@@ -8,15 +10,18 @@ from rich.style import Style
 
 from textual import on
 from textual.app import ComposeResult, RenderResult
+from textual.cache import LRUCache
 from textual.containers import Horizontal, Vertical
 from textual import events
 from textual.geometry import Size
 from textual.message import Message
 from textual.reactive import reactive, var
 from textual.scroll_view import ScrollView
+from textual import scrollbar
 from textual.cache import LRUCache
 from textual.widget import Widget
 from textual.widgets import Label
+from textual import work
 
 
 from textual.strip import Strip
@@ -27,6 +32,7 @@ from textual.suggester import Suggester
 from .filter_dialog import FilterDialog
 from .line_panel import LinePanel
 from .mapped_file import MappedFile
+from .timestamps import parse_extract
 from .watcher import Watcher, WatchedFile
 
 SPLIT_REGEX = r"[\s/\[\]]"
@@ -112,6 +118,11 @@ class PendingLines(Message):
     count: int
 
 
+@dataclass
+class NewBreaks(Message):
+    breaks: list[int]
+
+
 class LogLines(ScrollView):
     DEFAULT_CSS = """
     LogLines {
@@ -143,7 +154,7 @@ class LogLines(ScrollView):
     pointer_line: reactive[int | None] = reactive(None)
     show_timestamps: reactive[bool] = reactive(True)
     is_scrolling: reactive[int] = reactive(int)
-    pending_lines: reactive[int] = reactive[int]
+    pending_lines: reactive[int] = reactive(int)
     tail: reactive[bool] = reactive(True)
 
     GUTTER_WIDTH = 2
@@ -167,18 +178,27 @@ class LogLines(ScrollView):
         self.icons: dict[int, str] = {}
         self.scanned_size = 0
         self.file_size = 0
+        self._line_breaks: list[int] = []
+        self._line_cache: LRUCache[int, str] = LRUCache(1000)
+        self._text_cache: LRUCache[int, tuple[str, Text, datetime | None]] = LRUCache(
+            1000
+        )
 
     @property
     def line_count(self) -> int:
-        return self.mapped_file.line_count
+        return len(self._line_breaks)
 
     def clear_caches(self) -> None:
         self._render_line_cache.clear()
+        self._line_cache.clear()
+        self._text_cache.clear()
 
     def notify_style_update(self) -> None:
         self.clear_caches()
 
     def on_mount(self) -> None:
+        self.loading = True
+
         def size_changed(watched_file: WatchedFile) -> None:
             """Callback when the file changes size."""
             self.post_message(SizeChanged(watched_file.size))
@@ -191,7 +211,50 @@ class LogLines(ScrollView):
         self.scanned_size = size
         self.file_size = size
         self.mapped_file.open(size)
-        self.mapped_file.scan_block(0, size)
+
+        self.run_scan(size)
+
+    @work(thread=True)
+    def run_scan(self, size: int) -> None:
+        scan_chunk_size = 1000
+        breaks: list[int] = []
+        for position in self.mapped_file.scan_line_breaks(0, size):
+            breaks.append(position)
+            if len(breaks) >= scan_chunk_size:
+                self.post_message(NewBreaks(breaks[:]))
+                breaks.clear()
+                time.sleep(1 / 30)
+        if breaks:
+            self.post_message(NewBreaks(breaks[:]))
+
+    def get_line(self, line_index: int) -> str:
+        if line_index >= self.line_count - 1:
+            return ""
+        try:
+            line = self._line_cache[line_index]
+        except KeyError:
+            start = self._line_breaks[line_index]
+            end = (
+                self._line_breaks[line_index + 1]
+                if line_index + 1 < len(self._line_breaks)
+                else self.mapped_file.size
+            )
+            line_bytes = self.mapped_file.get_raw(start, end)
+            line = line_bytes.decode("utf-8", errors="replace")
+            self._line_cache[line_index] = line
+        return line
+
+    def get_text(self, line_index: int) -> tuple[str, Text, datetime | None]:
+        try:
+            line, text, timestamp = self._text_cache[line_index]
+        except KeyError:
+            line = self.get_line(line_index).strip("\n")
+            _, line, timestamp = parse_extract(line)
+            text = Text(line)
+            # text = self.highlighter(text)
+            text.expand_tabs(4)
+            self._text_cache[line_index] = (line, text, timestamp)
+        return line, text.copy(), timestamp
 
     def on_unmount(self) -> None:
         self.mapped_file.close()
@@ -201,7 +264,7 @@ class LogLines(ScrollView):
         index = y + scroll_y
         style = self.rich_style
         width, height = self.size
-        if index >= self.mapped_file.line_count:
+        if index >= self.line_count:
             return Strip.blank(width, style)
 
         is_pointer = self.pointer_line is not None and index == self.pointer_line
@@ -210,7 +273,7 @@ class LogLines(ScrollView):
         try:
             strip = self._render_line_cache[cache_key]
         except KeyError:
-            line, text, timestamp = self.mapped_file.get_text(index)
+            line, text, timestamp = self.get_text(index)
             if timestamp is not None and self.show_timestamps:
                 text = Text.assemble((f"{timestamp} ", "bold  magenta"), text)
             text.stylize_before(style)
@@ -315,7 +378,7 @@ class LogLines(ScrollView):
         scroll_y = self.scroll_offset.y
         max_scroll_y = scroll_y + self.scrollable_content_region.height - 1
         for line_no in line_range:
-            line = self.mapped_file.get_line(line_no)
+            line = self.get_line(line_no)
             if check_match(line):
                 self.pointer_line = line_no
                 break
@@ -338,7 +401,7 @@ class LogLines(ScrollView):
     def on_idle(self) -> None:
         self.virtual_size = Size(
             self._max_width + (self.GUTTER_WIDTH if self.show_gutter else 0),
-            self.mapped_file.line_count,
+            self.line_count,
         )
         if self.pointer_line is not None and not self.is_scrolling:
             scroll_y = self.scroll_offset.y
@@ -347,9 +410,9 @@ class LogLines(ScrollView):
             elif self.pointer_line >= scroll_y + self.scrollable_content_region.height:
                 self.pointer_line = scroll_y + self.scrollable_content_region.height - 1
 
-    def update_block(self, start: int, end: int) -> None:
-        self.mapped_file.scan_block(start, end)
-        self.pending_lines = len(self.mapped_file._pending_line_breaks)
+    # def update_block(self, start: int, end: int) -> None:
+    #     self.mapped_file.scan_block(start, end)
+    #     self.pending_lines = len(self.mapped_file._pending_line_breaks)
 
     def watch_show_find(self, show_find: bool) -> None:
         self.clear_caches()
@@ -380,12 +443,44 @@ class LogLines(ScrollView):
             self.show_gutter = True
             self.pointer_line = event.y + self.scroll_offset.y - self.gutter.top
 
-    @on(SizeChanged)
-    def on_size_changed(self, event: SizeChanged) -> None:
-        self.file_size = event.size
-        # self.mapped_file.scan_pending_block(self.scanned_size, event.size)
-        self.scanned_size = event.size
-        self.post_message(PendingLines(len(self.mapped_file._pending_line_breaks)))
+    # @on(SizeChanged)
+    # def on_size_changed(self, event: SizeChanged) -> None:
+    #     self.file_size = event.size
+    #     self.scanned_size = event.size
+    #     self.post_message(PendingLines(len(self.mapped_file._pending_line_breaks)))
+
+    @on(NewBreaks)
+    def on_new_breaks(self, event: NewBreaks) -> None:
+        distance_from_end = self.virtual_size.height - self.scroll_offset.y
+
+        if self.scroll_offset.y == self.max_scroll_y:
+            self.tail = True
+
+        self.loading = False
+        event.stop()
+        self._line_breaks.extend(event.breaks)
+        self._line_breaks.sort()
+        self.clear_caches()
+
+        self.virtual_size = Size(
+            self._max_width + (self.GUTTER_WIDTH if self.show_gutter else 0),
+            self.line_count,
+        )
+
+        if self.tail:
+            self.scroll_to(y=self.max_scroll_y, animate=False)
+        else:
+            self.scroll_to(
+                y=self.virtual_size.height - distance_from_end, animate=False
+            )
+
+    @on(scrollbar.ScrollTo)
+    @on(scrollbar.ScrollUp)
+    @on(scrollbar.ScrollDown)
+    @on(events.MouseScrollDown)
+    @on(events.MouseScrollUp)
+    def on_scroll(self, event: events.Event) -> None:
+        self.tail = False
 
 
 class LogView(Horizontal):
@@ -419,7 +514,7 @@ class LogView(Horizontal):
 
     def compose(self) -> ComposeResult:
         yield (log_lines := LogLines(self.watcher, self.file_path))
-        yield LinePanel(log_lines.mapped_file)
+        yield LinePanel()
         yield FilterDialog(log_lines._suggester)
         yield InfoOverlay()
 
@@ -469,7 +564,10 @@ class LogView(Horizontal):
         if event.pointer_line is None:
             self.show_panel = False
         else:
-            line_panel.line_no = event.pointer_line
+            line, text, timestamp = self.query_one(LogLines).get_text(
+                event.pointer_line
+            )
+            self.query_one(LinePanel).update(line, text, timestamp)
 
     @on(PendingLines)
     def on_pending_lines(self, event: PendingLines) -> None:

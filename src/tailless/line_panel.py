@@ -40,18 +40,8 @@ class LinePanel(Widget):
         padding: 1 0;
     }
     """
-    line_no = reactive(0)
 
-    def __init__(self, mapped_file: MappedFile) -> None:
-        self.mapped_file = mapped_file
-        super().__init__()
-
-    def compose(self) -> ComposeResult:
-        line, text, timestamp = self.mapped_file.get_text(self.line_no)
-        yield LineDisplay(line, text, timestamp)
-
-    async def watch_line_no(self, line_no: int) -> None:
-        line, text, timestamp = self.mapped_file.get_text(self.line_no)
+    def update(self, line: str, text: Text, timestamp: datetime | None) -> None:
         with self.app.batch_update():
-            await self.query_one(LineDisplay).remove()
-            await self.mount(LineDisplay(line, text, timestamp))
+            self.query(LineDisplay).remove()
+            self.mount(LineDisplay(line, text, timestamp))
