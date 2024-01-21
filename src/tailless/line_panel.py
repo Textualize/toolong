@@ -3,6 +3,7 @@ from datetime import datetime
 from rich.text import Text
 
 from textual.app import ComposeResult
+from textual.containers import VerticalScroll
 from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Label
@@ -12,33 +13,38 @@ from .mapped_file import MappedFile
 
 class LineDisplay(Widget):
     DEFAULT_CSS = """
-    LineDisplay {
-        border: panel $primary;
-        border-title-color: $foreground;
-        padding: 1 1 0 1;
+    LineDisplay {        
+        padding: 0 1;
+        margin: 1 0;
         height: auto;
         Label {
             width: 1fr;
-        }
+        }        
     }
     """
 
     def __init__(self, line: str, text: Text, timestamp: datetime | None) -> None:
         self.line = line
         self.text = text
+        self.timestamp = timestamp
         super().__init__()
-        if timestamp is not None:
-            self.border_title = f"🕒 {timestamp.ctime()}"
 
     def compose(self) -> ComposeResult:
+        if self.timestamp is not None:
+            yield Label(f"🕒 {self.timestamp.ctime()}")
         yield Label(self.text)
 
 
-class LinePanel(Widget):
+class LinePanel(VerticalScroll):
     DEFAULT_CSS = """
     LinePanel {
-        background: $panel;
-        padding: 1 0;
+        background: $panel;        
+        overflow-y: auto;
+        border: blank transparent;                
+
+        &:focus {
+            border: heavy $accent;
+        }
     }
     """
 

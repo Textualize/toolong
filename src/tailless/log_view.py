@@ -163,9 +163,12 @@ class ScanProgressBar(Static):
 
     message = reactive[str]
 
-    def update_progress(self, progress: int, total: int) -> None:
+    def update_progress(self, progress: int, total: int, line_count: int) -> None:
         percentage = int((progress / total) * 100.0)
-        self.update(f"Scanning [b]{percentage}%[/] - ESCAPE to cancel")
+        line_count_thousands = line_count // 1000
+        self.update(
+            f"Scanning [b]{percentage}%[/] ({line_count_thousands:,}K lines)- ESCAPE to cancel"
+        )
         self.add_class("-has-content")
 
 
@@ -315,7 +318,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         self, start: int, end: int, reverse: bool = False, tail: bool = False
     ) -> None:
         worker = get_current_worker()
-        scan_chunk_size = 50_000
+        scan_chunk_size = 100_000
         breaks: list[int] = []
         for position in self.mapped_file.scan_line_breaks(start, end, reverse=reverse):
             breaks.append(position)
@@ -325,6 +328,7 @@ class LogLines(ScrollView, inherit_bindings=False):
                 self.post_message(NewBreaks(breaks.copy(), tail=tail))
                 self.post_message(ScanProgress(end - start, end - position))
                 breaks.clear()
+                time.sleep(0)
         if breaks and not worker.is_cancelled:
             self.post_message(NewBreaks(breaks.copy(), tail=tail))
             self.post_message(ScanProgress(end - start, end - start))
@@ -362,6 +366,9 @@ class LogLines(ScrollView, inherit_bindings=False):
 
     def on_unmount(self) -> None:
         self.mapped_file.close()
+
+    def on_idle(self) -> None:
+        self.virtual_size = Size(self._max_width, self.line_count)
 
     def render_line(self, y: int) -> Strip:
         scroll_x, scroll_y = self.scroll_offset
@@ -743,7 +750,9 @@ class LogView(Horizontal):
 
     @on(ScanProgress)
     def on_scan_progress(self, event: ScanProgress):
-        self.query_one(ScanProgressBar).update_progress(event.progress, event.total)
+        self.query_one(ScanProgressBar).update_progress(
+            event.progress, event.total, self.query_one(LogLines).line_count
+        )
 
     @on(ScanComplete)
     def on_scan_complete(self, event: ScanComplete) -> None:
