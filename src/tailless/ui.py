@@ -26,7 +26,6 @@ class LogScreen(Screen):
         }
     }
 
-
     """
 
     BINDINGS = [
@@ -41,6 +40,9 @@ class LogScreen(Screen):
                 with TabPane(path):
                     yield LogView(path, self.app.watcher)
         yield Footer()
+
+    def on_mount(self) -> None:
+        self.query_one(TabbedContent).active_pane.query("LogView > LogLines").focus()
 
     def action_toggle_find(self) -> None:
         tabbed_content = self.query_one(TabbedContent)
@@ -67,8 +69,9 @@ class UI(App):
         self.watcher = Watcher()
         super().__init__()
 
-    def on_mount(self) -> None:
-        self.push_screen(LogScreen())
+    async def on_mount(self) -> None:
+        await self.push_screen(LogScreen())
+        self.screen.query("LogLines").first().focus()
         self.watcher.start()
 
     def on_unmount(self) -> None:

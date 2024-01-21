@@ -4,9 +4,10 @@ import rich.repr
 
 from dataclasses import dataclass
 import os
+import time
 from selectors import DefaultSelector, EVENT_READ
-from threading import Event, Thread
-from typing import Callable
+from threading import Event, Thread, Lock
+from typing import Callable, NamedTuple
 
 
 @dataclass
@@ -17,8 +18,8 @@ class WatchedFile:
     path: str
     fileno: int
     size: int
-    callback: Callable[[WatchedFile], None]
-    error_callback: Callable[[WatchedFile, Exception], None]
+    callback: Callable[[int], None]
+    error_callback: Callable[[Exception], None]
 
     def __rich_repr__(self) -> rich.repr.Result:
         yield self.path
@@ -42,9 +43,9 @@ class Watcher(Thread):
     def add(
         self,
         path: str,
-        callback: Callable[[WatchedFile], None],
-        error_callback: Callable[[WatchedFile, Exception], None],
-    ) -> int:
+        callback: Callable[[int], None],
+        error_callback: Callable[[Exception], None],
+    ) -> tuple[int, int]:
         """Add a file to the watcher."""
         fileno = os.open(path, os.O_RDONLY)
         size = os.lseek(fileno, 0, os.SEEK_END)
@@ -52,10 +53,11 @@ class Watcher(Thread):
             path, fileno, size, callback, error_callback
         )
         self._selector.register(fileno, EVENT_READ)
-        return size
+        return fileno, size
 
     def run(self) -> None:
         """Thread runner."""
+        return
         while not self._exit_event.is_set():
             for key, mask in self._selector.select(timeout=1):
                 if self._exit_event.is_set():
@@ -66,16 +68,17 @@ class Watcher(Thread):
                     watched_file = self._file_descriptors.get(fileno, None)
                     if watched_file is None:
                         continue
+                    time.sleep(1 / 20)
                     try:
                         size = os.lseek(fileno, 0, os.SEEK_END)
                     except Exception as error:
-                        watched_file.error_callback(watched_file, error)
+                        watched_file.error_callback(error)
                         self._file_descriptors.pop(fileno, None)
                         self._selector.unregister(fileno)
                         continue
                     watched_file.size = size
                     try:
-                        watched_file.callback(watched_file)
+                        watched_file.callback(size)
                     except Exception:
                         pass
 

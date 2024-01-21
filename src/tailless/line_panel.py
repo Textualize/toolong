@@ -15,7 +15,8 @@ class LineDisplay(Widget):
     LineDisplay {
         border: panel $primary;
         border-title-color: $foreground;
-        padding: 1;
+        padding: 1 1 0 1;
+        height: auto;
         Label {
             width: 1fr;
         }
@@ -41,7 +42,7 @@ class LinePanel(Widget):
     }
     """
 
-    def update(self, line: str, text: Text, timestamp: datetime | None) -> None:
+    async def update(self, line: str, text: Text, timestamp: datetime | None) -> None:
         with self.app.batch_update():
-            self.query(LineDisplay).remove()
-            self.mount(LineDisplay(line, text, timestamp))
+            await self.query(LineDisplay).remove()
+            await self.mount(LineDisplay(line, text, timestamp))
