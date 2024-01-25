@@ -4,11 +4,9 @@ from rich.text import Text
 
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll
-from textual.reactive import reactive
+
 from textual.widget import Widget
 from textual.widgets import Label
-
-from .mapped_file import MappedFile
 
 
 class LineDisplay(Widget):
