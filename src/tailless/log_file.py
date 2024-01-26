@@ -36,6 +36,12 @@ class LogFile:
             self.file = None
 
     def get_raw(self, start: int, end: int) -> bytes:
+        print(start, end, self.file)
         if start >= end or self.file is None:
             return b""
-        return os.pread(self.fileno, end - start, start)
+        raw_data = os.pread(self.fileno, end - start, start)
+        return raw_data
+
+    def read(self, size: int) -> bytes:
+        assert self.file is not None, "Must be open to read"
+        return self.file.read(size)

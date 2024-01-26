@@ -20,7 +20,6 @@ class WatchedFile:
     """A currently watched file."""
 
     log_file: LogFile
-    position: int
     callback: Callable[[int, list[int]], None]
     error_callback: Callable[[Exception], None]
 
@@ -38,7 +37,7 @@ def scan_chunk(chunk: bytes, position: int) -> list[int]:
         position: Offset within the file
 
     Returns:
-        _type_: _description_
+        A list of indices with new lines.
     """
     breaks: list[int] = []
     offset = 0
@@ -71,9 +70,8 @@ class Watcher(Thread):
         """Add a file to the watcher."""
         fileno = log_file.fileno
         size = log_file.size
-        self._file_descriptors[fileno] = WatchedFile(
-            log_file, size, callback, error_callback
-        )
+        self._file_descriptors[fileno] = WatchedFile(log_file, callback, error_callback)
+        os.lseek(fileno, size, os.SEEK_SET)
         self._selector.register(fileno, EVENT_READ)
 
     def run(self) -> None:
@@ -93,14 +91,14 @@ class Watcher(Thread):
                         continue
 
                     try:
-                        chunk = watched_file.log_file.get_raw(
-                            watched_file.position - 1,
-                            watched_file.position + chunk_size,
-                        )
+                        position = os.lseek(fileno, 0, os.SEEK_CUR)
+                        print(position)
+                        chunk = watched_file.log_file.read(chunk_size)
+                        print("  ", chunk, position)
                         if chunk:
-                            breaks = scan_chunk(chunk, watched_file.position)
-                            watched_file.position += len(chunk)
-                            watched_file.callback(watched_file.position, breaks)
+                            breaks = scan_chunk(chunk, position)
+                            print(breaks)
+                            watched_file.callback(position + len(chunk), breaks)
 
                     except Exception as error:
                         watched_file.error_callback(error)
