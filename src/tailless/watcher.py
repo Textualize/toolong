@@ -92,12 +92,9 @@ class Watcher(Thread):
 
                     try:
                         position = os.lseek(fileno, 0, os.SEEK_CUR)
-                        print(position)
                         chunk = watched_file.log_file.read(chunk_size)
-                        print("  ", chunk, position)
                         if chunk:
                             breaks = scan_chunk(chunk, position)
-                            print(breaks)
                             watched_file.callback(position + len(chunk), breaks)
 
                     except Exception as error:

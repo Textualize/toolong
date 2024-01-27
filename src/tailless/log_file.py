@@ -1,5 +1,5 @@
 import os
-from typing import IO, Iterable
+from typing import IO
 from threading import Lock
 
 
@@ -36,7 +36,6 @@ class LogFile:
             self.file = None
 
     def get_raw(self, start: int, end: int) -> bytes:
-        print(start, end, self.file)
         if start >= end or self.file is None:
             return b""
         raw_data = os.pread(self.fileno, end - start, start)

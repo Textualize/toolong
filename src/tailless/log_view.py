@@ -5,6 +5,7 @@ import re
 import time
 from typing import Mapping
 
+import rich.repr
 from rich.text import Text
 from rich.segment import Segment
 from rich.style import Style
@@ -15,7 +16,7 @@ from textual.binding import Binding, BindingType
 from textual.cache import LRUCache
 from textual.containers import Horizontal, Vertical
 from textual import events
-from textual.geometry import Size
+from textual.geometry import Size, clamp
 from textual.message import Message
 from textual.reactive import reactive, var
 from textual.scroll_view import ScrollView
@@ -132,11 +133,16 @@ class DismissOverlay(Message):
     pass
 
 
+@rich.repr.auto
 @dataclass
 class NewBreaks(Message):
     breaks: list[int]
     scanned_size: int = 0
     tail: bool = False
+
+    def __rich_repr__(self) -> rich.repr.Result:
+        yield "scanned_size", self.scanned_size
+        yield "tail", self.tail
 
 
 class TailFile(Message):
@@ -183,6 +189,7 @@ class ScanProgress(Message):
 @dataclass
 class ScanComplete(Message):
     size: int
+    scan_start: int
 
 
 class LogLines(ScrollView, inherit_bindings=False):
@@ -267,6 +274,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.initial_scan_worker: Worker | None = None
         self._line_count = 0
         self._scanned_size = 0
+        self._scan_start = 0
 
     @property
     def line_count(self) -> int:
@@ -305,6 +313,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         size = self.log_file.open()
 
         # self.disabled = True
+        self._scan_start = size - 1
         self.initial_scan_worker = self.run_scan(size)
         # self.start_tail()
 
@@ -330,7 +339,7 @@ class LogLines(ScrollView, inherit_bindings=False):
     @work(thread=True)
     def run_scan(self, size: int) -> None:
         if not size:
-            self.post_message(ScanComplete(0))
+            self.post_message(ScanComplete(0, 0))
             return
 
         time.sleep(0.1)
@@ -338,13 +347,13 @@ class LogLines(ScrollView, inherit_bindings=False):
 
         log_mmap = mmap.mmap(self.log_file.fileno, size, prot=mmap.PROT_READ)
 
-        scan_chunk_size = 10_000
+        scan_chunk_size = 50_000
         breaks: list[int] = []
 
         position = size
         append = breaks.append
         rfind = log_mmap.rfind
-        print(repr(bytes(log_mmap)))
+
         while (position := rfind(b"\n", 0, position)) != -1:
             append(position)
             if len(breaks) >= scan_chunk_size:
@@ -353,23 +362,28 @@ class LogLines(ScrollView, inherit_bindings=False):
                 self.post_message(NewBreaks(breaks.copy()))
                 self.post_message(ScanProgress(size, size - position))
                 breaks.clear()
-                if self.message_queue_size > 5:
-                    time.sleep(0.2)
+                if self.message_queue_size > 10:
+                    while self.message_queue_size > 1:
+                        time.sleep(0.2)
 
         if breaks and not worker.is_cancelled:
             self.post_message(NewBreaks(breaks.copy()))
             self.post_message(ScanProgress(size, size))
 
-        self.post_message(ScanComplete(size))
+        self.post_message(ScanComplete(size, max(0, position)))
 
     def index_to_span(self, index: int) -> tuple[int, int]:
+        scan_start = self._scan_start
         if not self._line_breaks:
-            return (0, 0)
-        start = self._line_breaks[index - 1] if index - 1 >= 0 else 0
+            return (scan_start, scan_start)
+        index = clamp(index, 0, len(self._line_breaks))
+        if index == 0:
+            return (scan_start, self._line_breaks[0])
+        start = self._line_breaks[index - 1]
         end = (
             self._line_breaks[index]
             if index < len(self._line_breaks)
-            else self._scanned_size
+            else max(0, self._scanned_size - 1)
         )
         return (start, end)
 
@@ -581,31 +595,46 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.post_message(LogLines.PointerMoved(pointer_line))
 
     def action_scroll_up(self) -> None:
-        self.advance_search(-1)
+        if self.pointer_line is None:
+            super().action_scroll_up()
+        else:
+            self.advance_search(-1)
 
     def action_scroll_down(self) -> None:
-        self.advance_search(+1)
+        if self.pointer_line is None:
+            super().action_scroll_down()
+        else:
+            self.advance_search(+1)
 
     def action_scroll_home(self) -> None:
+        if self.pointer_line is not None:
+            self.pointer_line = 0
         self.scroll_to(y=0, animate=False)
-        self.pointer_line = 0
 
     def action_scroll_end(self) -> None:
-        self.pointer_line = self.virtual_size.height - 1
-        self.scroll_to(y=self.pointer_line, animate=False)
+        if self.pointer_line is not None:
+            self.pointer_line = self.line_count
+        self.scroll_to(y=self.max_scroll_y, animate=False)
         # self.tail = True
-        self.post_message(TailFile())
+        # self.post_message(TailFile())
 
     def action_page_down(self) -> None:
-        if self.pointer_line is not None:
+        if self.pointer_line is None:
+            super().action_page_down()
+        else:
             self.pointer_line = (
                 self.pointer_line + self.scrollable_content_region.height
             )
-        self.scroll_pointer_to_center()
+            self.scroll_pointer_to_center()
 
     def action_page_up(self) -> None:
-        self.pointer_line = self.pointer_line - self.scrollable_content_region.height
-        self.scroll_pointer_to_center()
+        if self.pointer_line is None:
+            super().action_page_up()
+        else:
+            self.pointer_line = (
+                self.pointer_line - self.scrollable_content_region.height
+            )
+            self.scroll_pointer_to_center()
 
     def on_click(self, event: events.Click) -> None:
         new_pointer_line = event.y + self.scroll_offset.y - self.gutter.top
@@ -615,7 +644,10 @@ class LogLines(ScrollView, inherit_bindings=False):
         # self.tail = False
 
     def action_select(self):
-        self.post_message(FilterDialog.SelectLine())
+        if self.pointer_line is None:
+            self.pointer_line = self.scroll_offset.y
+        else:
+            self.post_message(FilterDialog.SelectLine())
 
     def action_dismiss(self):
         if self.initial_scan_worker is not None and self.initial_scan_worker.is_running:
@@ -634,20 +666,18 @@ class LogLines(ScrollView, inherit_bindings=False):
 
     def update_line_count(self) -> None:
         line_count = len(self._line_breaks)
-        if self._line_breaks and self._line_breaks[-1] != self._scanned_size - 1:
-            line_count += 1
+        # if self._line_breaks and self._line_breaks[-1] != self._scanned_size:
+        #     line_count += 1
         line_count = max(1, line_count)
         self._line_count = line_count
         self.virtual_size = Size(
             self._max_width + (self.GUTTER_WIDTH if self.show_gutter else 0),
-            self.line_count + 1,
+            self.line_count,
         )
-        print("UPDATE BREAKS", self._line_breaks)
-        print("LINE COUNT", self._line_count)
 
     @on(NewBreaks)
     def on_new_breaks(self, event: NewBreaks) -> None:
-        print(event.breaks)
+        first = not not self._line_breaks
         event.stop()
         self._scanned_size = max(self._scanned_size, event.scanned_size)
         if not self.tail:
@@ -657,7 +687,6 @@ class LogLines(ScrollView, inherit_bindings=False):
         if not event.tail:
             self._line_breaks.sort()
 
-        print(self._line_breaks)
         if not self.tail:
             self.post_message(PendingLines(len(self._line_breaks) - self.line_count))
             return
@@ -669,19 +698,9 @@ class LogLines(ScrollView, inherit_bindings=False):
             if self.pointer_line is None
             else self.virtual_size.height - self.pointer_line
         )
-
-        # if self.scroll_offset.y >= self.max_scroll_y:
-        #     self.tail = True
-
         self.loading = False
-        # self._line_breaks.extend(self._pending_line_breaks)
-        # self._pending_line_breaks.clear()
-        # self._line_breaks.sort()
 
-        # if not self.line_count:
-        #     self._line_count = len(self._line_breaks)
-
-        if not event.tail or self.tail:
+        if not event.tail or self.tail or first:
             self.update_line_count()
 
         if self.tail:
@@ -713,8 +732,13 @@ class LogLines(ScrollView, inherit_bindings=False):
     @on(ScanComplete)
     def on_scan_complete(self, event: ScanComplete) -> None:
         self._scanned_size = max(self._scanned_size, event.size)
+        self._scan_start = event.scan_start
         self.update_line_count()
         self.refresh()
+
+    @on(ScanProgress)
+    def on_scan_progress(self, event: ScanProgress):
+        self._scan_start = event.progress
 
 
 class LogView(Horizontal):
@@ -780,7 +804,6 @@ class LogView(Horizontal):
     @on(FilterDialog.Dismiss)
     def dismiss_filter_dialog(self, event: FilterDialog.Dismiss) -> None:
         event.stop()
-        log_lines = self.query_one(LogLines)
         self.show_find = False
 
     @on(FilterDialog.MovePointer)
@@ -795,7 +818,10 @@ class LogView(Horizontal):
 
     @on(DismissOverlay)
     def dismiss_overlay(self) -> None:
-        self.show_panel = False
+        if self.show_panel:
+            self.show_panel = False
+        else:
+            self.query_one(LogLines).pointer_line = None
 
     @on(TailFile)
     def on_tail_file(self, event: TailFile) -> None:
@@ -809,9 +835,6 @@ class LogView(Horizontal):
         if event.pointer_line is None:
             self.show_panel = False
         else:
-            # self.show_panel = True
-            # log_lines = self.query_one(LogLines)
-            # log_lines.tail = True
             line, text, timestamp = self.query_one(LogLines).get_text(
                 event.pointer_line
             )
@@ -824,6 +847,7 @@ class LogView(Horizontal):
 
     @on(ScanProgress)
     def on_scan_progress(self, event: ScanProgress):
+        event.stop()
         self.query_one(ScanProgressBar).update_progress(
             event.progress, event.total, self.query_one(LogLines).line_count
         )
