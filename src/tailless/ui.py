@@ -31,6 +31,7 @@ class LogScreen(Screen):
     BINDINGS = [
         Binding("ctrl+f", "toggle_find", "Find"),
         Binding("ctrl+t", "toggle_timestamps", "Timestamps"),
+        Binding("ctrl+l", "toggle_line_numbers", "Line numbers"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -55,6 +56,12 @@ class LogScreen(Screen):
         pane = tabbed_content.get_pane(tabbed_content.active)
         log_view = pane.query_one(LogView)
         log_view.show_timestamps = not log_view.show_timestamps
+
+    def action_toggle_line_numbers(self):
+        tabbed_content = self.query_one(TabbedContent)
+        pane = tabbed_content.get_pane(tabbed_content.active)
+        log_view = pane.query_one("LogLines")
+        log_view.show_line_numbers = not log_view.show_line_numbers
 
 
 class UI(App):
