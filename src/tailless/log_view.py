@@ -81,7 +81,7 @@ class LineReader(Thread):
         log_lines = self.log_lines
         while not self.exit_event.is_set():
             try:
-                request = self.queue.get(timeout=0.1)
+                request = self.queue.get(timeout=0.2)
             except Empty:
                 continue
             else:
@@ -90,8 +90,14 @@ class LineReader(Thread):
                 self.queue.task_done()
                 if self.exit_event.is_set() or index == -1:
                     break
-                line = log_lines._get_line(start, end)
-                log_lines.post_message(LineRead(index, start, end, line))
+                log_lines.post_message(
+                    LineRead(
+                        index,
+                        start,
+                        end,
+                        log_lines._get_line(start, end),
+                    )
+                )
 
 
 class SearchSuggester(Suggester):
@@ -582,8 +588,10 @@ class LogLines(ScrollView, inherit_bindings=False):
         if index >= self.line_count:
             return Strip.blank(width, style)
 
+        span = self.index_to_span(index)
+
         is_pointer = self.pointer_line is not None and index == self.pointer_line
-        cache_key = (index, is_pointer)
+        cache_key = (span, is_pointer)
 
         try:
             strip = self._render_line_cache[cache_key]
@@ -917,8 +925,8 @@ class LogLines(ScrollView, inherit_bindings=False):
         end = event.end
         index = event.index
         # self.clear_caches()
-        self._render_line_cache.discard((index, True))
-        self._render_line_cache.discard((index, False))
+        self._render_line_cache.discard(((start, end), True))
+        self._render_line_cache.discard(((start, end), False))
         self._line_cache[(start, end)] = event.line
         self._text_cache.discard((start, end, False))
         self._text_cache.discard((start, end, True))
