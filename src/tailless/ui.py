@@ -5,7 +5,7 @@ from textual.binding import Binding
 from textual.screen import Screen
 from textual.widgets import Footer, TabbedContent, TabPane
 
-from .log_view import LogView
+from .log_view import LogView, LogFooter
 from .watcher import Watcher
 
 
@@ -40,7 +40,6 @@ class LogScreen(Screen):
             for path in self.app.file_paths:
                 with TabPane(path):
                     yield LogView(path, self.app.watcher)
-        yield Footer()
 
     def on_mount(self) -> None:
         self.query_one(TabbedContent).active_pane.query("LogView > LogLines").focus()

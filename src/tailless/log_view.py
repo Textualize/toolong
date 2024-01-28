@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
 import mmap
 import re
 import time
+from queue import Empty, Queue
+from threading import Thread, Event
 from typing import Mapping
 
 import rich.repr
@@ -26,6 +30,7 @@ from textual.widget import Widget
 from textual.widgets import Label, Static, Switch, ProgressBar
 from textual import work
 from textual.worker import Worker, get_current_worker
+from textual.widget import Widget
 
 
 from textual.strip import Strip
@@ -41,6 +46,52 @@ from .timestamps import parse_extract
 from .watcher import Watcher
 
 SPLIT_REGEX = r"[\s/\[\]]"
+
+
+MAX_LINE_LENGTH = 1000
+
+
+@dataclass
+class LineRead(Message):
+    index: int
+    start: int
+    end: int
+    line: str
+
+
+class LineReader(Thread):
+    def __init__(self, log_lines: LogLines) -> None:
+        self.log_lines = log_lines
+        self.queue: Queue[tuple[int, int, int]] = Queue(maxsize=1000)
+        self.exit_event = Event()
+        self.pending: set[tuple[int, int, int]] = set()
+        super().__init__()
+
+    def request_line(self, index: int, start: int, end: int) -> None:
+        request = (index, start, end)
+        if request not in self.pending:
+            self.queue.put((index, start, end))
+
+    def stop(self) -> None:
+        self.exit_event.set()
+        self.queue.put((-1, 0, 0))
+        self.join()
+
+    def run(self) -> None:
+        log_lines = self.log_lines
+        while not self.exit_event.is_set():
+            try:
+                request = self.queue.get(timeout=0.1)
+            except Empty:
+                continue
+            else:
+                self.pending.discard(request)
+                index, start, end = request
+                self.queue.task_done()
+                if self.exit_event.is_set() or index == -1:
+                    break
+                line = log_lines._get_line(start, end)
+                log_lines.post_message(LineRead(index, start, end, line))
 
 
 class SearchSuggester(Suggester):
@@ -193,6 +244,38 @@ class ScanComplete(Message):
     scan_start: int
 
 
+class LogFooter(Widget):
+    DEFAULT_CSS = """
+    LogFooter {
+        layout: horizontal;
+        height: 1;
+        width: 1fr;
+        dock: bottom;
+        .content {
+            width: 1fr;
+            height: 1;
+            
+        }
+        .line-no {
+            width: auto;
+            height: 1;
+            color: $warning;
+            padding: 0 1;
+        }
+    }
+    """
+    line_no: reactive[int | None] = reactive(None)
+
+    def compose(self) -> ComposeResult:
+        yield Label("", classes="content")
+        yield Label("Foo", classes="line-no")
+
+    def watch_line_no(self, line_no: int | None) -> None:
+        self.query_one(".line-no", Label).update(
+            "" if line_no is None else f"Line {line_no+1:,}"
+        )
+
+
 class LogLines(ScrollView, inherit_bindings=False):
     BINDINGS = [
         Binding("up", "scroll_up", "Scroll Up", show=False),
@@ -250,7 +333,7 @@ class LogLines(ScrollView, inherit_bindings=False):
     case_sensitive = reactive(False)
     regex = reactive(False)
     show_gutter = reactive(False)
-    pointer_line: reactive[int | None] = reactive(None)
+    pointer_line: reactive[int | None] = reactive(None, repaint=False)
     show_timestamps: reactive[bool] = reactive(True)
     is_scrolling: reactive[int] = reactive(int)
     pending_lines: reactive[int] = reactive(int)
@@ -275,9 +358,9 @@ class LogLines(ScrollView, inherit_bindings=False):
         self._suggester = SearchSuggester(self._search_index)
         self.icons: dict[int, str] = {}
         self._line_breaks: list[int] = []
-        self._line_cache: LRUCache[tuple[int, int], str] = LRUCache(1000)
+        self._line_cache: LRUCache[tuple[int, int], str] = LRUCache(10000)
         self._text_cache: LRUCache[
-            tuple[int, int], tuple[str, Text, datetime | None]
+            tuple[int, int, bool], tuple[str, Text, datetime | None]
         ] = LRUCache(1000)
         self.highlighter = LogHighlighter()
         self.initial_scan_worker: Worker | None = None
@@ -285,6 +368,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         self._scanned_size = 0
         self._scan_start = 0
         self._gutter_width = 0
+        self._line_reader = LineReader(self)
 
     @property
     def line_count(self) -> int:
@@ -303,7 +387,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         yield ScanProgressBar()
 
     def clear_caches(self) -> None:
-        self._render_line_cache.clear()
+        # self._render_line_cache.clear()
         self._line_cache.clear()
         self._text_cache.clear()
 
@@ -325,6 +409,8 @@ class LogLines(ScrollView, inherit_bindings=False):
 
         # fileno, size = self.watcher.add(self.file_path, size_changed, watch_error)
         size = self.log_file.open()
+
+        self._line_reader.start()
 
         # self.disabled = True
         self._scan_start = max(0, size - 1)
@@ -365,6 +451,7 @@ class LogLines(ScrollView, inherit_bindings=False):
 
         scanned_position = position = size
         append = breaks.append
+        get_length = breaks.__len__
         rfind = log_mmap.rfind
 
         monotonic = time.monotonic
@@ -372,7 +459,7 @@ class LogLines(ScrollView, inherit_bindings=False):
 
         while (position := rfind(b"\n", 0, position)) != -1:
             append(position)
-            if monotonic() - break_time > 0.25:
+            if get_length() % 1000 == 0 and monotonic() - break_time > 0.25:
                 break_time = time.monotonic()
                 if worker.is_cancelled:
                     break
@@ -404,46 +491,83 @@ class LogLines(ScrollView, inherit_bindings=False):
         )
         return (start, end)
 
-    def get_line_from_index(self, index: int) -> str:
+    def get_line_from_index_blocking(self, index: int) -> str:
         start, end = self.index_to_span(index)
-        return self.get_line(start, end)
+        return self._get_line(start, end)
 
-    def get_line(self, start: int, end: int) -> str:
+    def get_line_from_index(self, index: int) -> str | None:
+        start, end = self.index_to_span(index)
+        return self.get_line(index, start, end)
+
+    def _get_line(self, start: int, end: int) -> str:
+        line_bytes = self.log_file.get_raw(start, end)
+        line = line_bytes.decode("utf-8", errors="replace").strip("\n\r").expandtabs(4)
+        return line
+
+    def get_line(self, index: int, start: int, end: int) -> str | None:
         cache_key = (start, end)
         try:
             line = self._line_cache[cache_key]
         except KeyError:
-            line_bytes = self.log_file.get_raw(start, end)
-            line = line_bytes.decode("utf-8", errors="replace").strip("\n\r")
-            if len(line) > 1000:
-                line = line[:1000] + "…"
-            self._line_cache[cache_key] = line
+            self._line_reader.request_line(index, start, end)
+            return None
         return line
 
-    def get_text(self, line_index: int) -> tuple[str, Text, datetime | None]:
-        start, end = self.index_to_span(line_index)
+    def get_line_blocking(self, index: int, start: int, end: int) -> str:
         cache_key = (start, end)
+        try:
+            line = self._line_cache[cache_key]
+        except KeyError:
+            line = self._get_line(start, end)
+            self._line_cache[(start, end)] = line
+        return line
+
+    def get_text(
+        self, line_index: int, abbreviate: bool = False, block: bool = False
+    ) -> tuple[str, Text, datetime | None]:
+        start, end = self.index_to_span(line_index)
+        cache_key = (start, end, abbreviate)
         try:
             line, text, timestamp = self._text_cache[cache_key]
         except KeyError:
-            line = self.get_line(start, end)
+            new_line: str | None
+            if block:
+                new_line = self.get_line_blocking(line_index, start, end)
+            else:
+                new_line = self.get_line(line_index, start, end)
+            if new_line is None:
+                return "", Text(""), None
+            line = new_line
+            if abbreviate and len(line) > MAX_LINE_LENGTH:
+                line = line[:MAX_LINE_LENGTH] + "…"
             _, line, timestamp = parse_extract(line)
             text = Text(line)
             text = self.highlighter(text)
-            text.expand_tabs(4)
             self._text_cache[cache_key] = (line, text, timestamp)
         return line, text.copy(), timestamp
 
     def on_unmount(self) -> None:
+        self._line_reader.stop()
         self.log_file.close()
 
     def on_idle(self) -> None:
         self.update_line_count()
 
     def render_lines(self, crop: Region) -> list[Strip]:
+        page_height = self.scrollable_content_region.height
+        scroll_y = self.scroll_offset.y
+        line_count = self.line_count
+        index_to_span = self.index_to_span
+        for index in range(
+            max(0, scroll_y - page_height),
+            min(line_count, scroll_y + page_height + page_height),
+        ):
+            span = index_to_span(index)
+            if span not in self._line_cache:
+                self._line_reader.request_line(index, *span)
         if self.show_line_numbers:
-            max_line_no = self.scroll_offset.y + self.scrollable_content_region.height
-            self._gutter_width = len(str(max_line_no)) + 1
+            max_line_no = self.scroll_offset.y + page_height
+            self._gutter_width = len(f"{max_line_no+1} ")
         else:
             self._gutter_width = 0
         if self.pointer_line is not None:
@@ -464,7 +588,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         try:
             strip = self._render_line_cache[cache_key]
         except KeyError:
-            line, text, timestamp = self.get_text(index)
+            line, text, timestamp = self.get_text(index, abbreviate=True)
             if timestamp is not None and self.show_timestamps:
                 text = Text.assemble((f"{timestamp} ", "bold  magenta"), text)
             text.stylize_before(style)
@@ -512,7 +636,7 @@ class LogLines(ScrollView, inherit_bindings=False):
                 icon = self.icons.get(index, " ")
 
             if self.show_line_numbers:
-                segments = [Segment(f"{index} ", line_number_style), Segment(icon)]
+                segments = [Segment(f"{index+1} ", line_number_style), Segment(icon)]
             else:
                 segments = [Segment(icon)]
             icon_strip = Strip(segments)
@@ -584,7 +708,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         if self.show_find:
             check_match = self.check_match
             for line_no in line_range:
-                line = self.get_line_from_index(line_no)
+                line = self.get_line_from_index_blocking(line_no)
                 if line and check_match(line):
                     self.pointer_line = line_no
                     break
@@ -630,6 +754,10 @@ class LogLines(ScrollView, inherit_bindings=False):
     ) -> None:
         # if old_pointer_line is not None and pointer_line is not None:
         #     self.scroll_pointer_to_center()
+        if old_pointer_line is not None:
+            self.refresh_lines(old_pointer_line)
+        if pointer_line is not None:
+            self.refresh_lines(pointer_line)
         self.show_gutter = pointer_line is not None
         self.post_message(LogLines.PointerMoved(pointer_line))
 
@@ -649,13 +777,13 @@ class LogLines(ScrollView, inherit_bindings=False):
     def action_scroll_home(self) -> None:
         if self.pointer_line is not None:
             self.pointer_line = 0
-        self.scroll_to(y=0, duration=0.05)
+        self.scroll_to(y=0, duration=0)
         self.tail = False
 
     def action_scroll_end(self) -> None:
         if self.pointer_line is not None:
             self.pointer_line = self.line_count
-        self.scroll_to(y=self.max_scroll_y, duration=0.05)
+        self.scroll_to(y=self.max_scroll_y, duration=0)
         self.tail = False
         # self.tail = True
         # self.post_message(TailFile())
@@ -715,7 +843,8 @@ class LogLines(ScrollView, inherit_bindings=False):
         line_count = max(1, line_count)
         self._line_count = line_count
         self.virtual_size = Size(
-            self._max_width + (self.gutter_width if self.show_gutter else 0),
+            self._max_width
+            + (self.gutter_width if self.show_gutter or self.show_line_numbers else 0),
             self.line_count,
         )
 
@@ -781,6 +910,22 @@ class LogLines(ScrollView, inherit_bindings=False):
     def on_scan_progress(self, event: ScanProgress):
         self._scan_start = event.scan_start
 
+    @on(LineRead)
+    def on_line_read(self, event: LineRead) -> None:
+        event.stop()
+        start = event.start
+        end = event.end
+        index = event.index
+        # self.clear_caches()
+        self._render_line_cache.discard((index, True))
+        self._render_line_cache.discard((index, False))
+        self._line_cache[(start, end)] = event.line
+        self._text_cache.discard((start, end, False))
+        self._text_cache.discard((start, end, True))
+
+        # self.refresh()
+        self.refresh_lines(event.index, 1)
+
 
 class LogView(Horizontal):
     DEFAULT_CSS = """
@@ -819,6 +964,7 @@ class LogView(Horizontal):
         yield FilterDialog(log_lines._suggester)
         yield InfoOverlay()
         # yield ScanProgressBar()
+        yield LogFooter()
 
     @on(FilterDialog.Update)
     def filter_dialog_update(self, event: FilterDialog.Update) -> None:
@@ -839,8 +985,9 @@ class LogView(Horizontal):
     def watch_show_timestamps(self, show_timestamps: bool) -> None:
         self.query_one(LogLines).show_timestamps = show_timestamps
 
-    def watch_show_panel(self, show_panel: bool) -> None:
+    async def watch_show_panel(self, show_panel: bool) -> None:
         self.set_class(show_panel, "show-panel")
+        await self.update_panel()
 
     @on(FilterDialog.Dismiss)
     def dismiss_filter_dialog(self, event: FilterDialog.Dismiss) -> None:
@@ -871,15 +1018,24 @@ class LogView(Horizontal):
         log_lines.tail = True
         self.query_one(InfoOverlay).message = ""
 
+    async def update_panel(self) -> None:
+        if not self.show_panel:
+            return
+        pointer_line = self.query_one(LogLines).pointer_line
+        if pointer_line is not None:
+            line, text, timestamp = self.query_one(LogLines).get_text(
+                pointer_line, block=True
+            )
+            await self.query_one(LinePanel).update(line, text, timestamp)
+
     @on(LogLines.PointerMoved)
     async def pointer_moved(self, event: LogLines.PointerMoved):
         if event.pointer_line is None:
             self.show_panel = False
-        else:
-            line, text, timestamp = self.query_one(LogLines).get_text(
-                event.pointer_line
-            )
-            await self.query_one(LinePanel).update(line, text, timestamp)
+        if self.show_panel:
+            await self.update_panel()
+
+        self.query_one(LogFooter).line_no = event.pointer_line
 
     @on(PendingLines)
     def on_pending_lines(self, event: PendingLines) -> None:
