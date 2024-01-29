@@ -414,13 +414,14 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.add_class("-scanning")
 
         # fileno, size = self.watcher.add(self.file_path, size_changed, watch_error)
-        size = self.log_file.open()
+        # self.log_file.open()
+        # size = self.log_file.size
 
         self._line_reader.start()
 
         # self.disabled = True
-        self._scan_start = max(0, size - 1)
-        self.initial_scan_worker = self.run_scan(size)
+        # self._scan_start = max(0, size - 1)
+        self.initial_scan_worker = self.run_scan()
         # self.start_tail()
 
     def start_tail(self) -> None:
@@ -443,13 +444,31 @@ class LogLines(ScrollView, inherit_bindings=False):
         )
 
     @work(thread=True)
-    def run_scan(self, size: int) -> None:
+    def run_scan(self) -> None:
+        time.sleep(0.1)
+        worker = get_current_worker()
+        try:
+            if not self.log_file.open(worker.cancelled_event):
+                self.loading = False
+                return
+        except FileNotFoundError:
+            self.notify(
+                f"File {self.log_file.path.name!r} not found.", severity="error"
+            )
+            self.loading = False
+            return
+        except Exception as error:
+            self.notify(
+                f"Failed to open {self.log_file.path.name!r}; {error}", severity="error"
+            )
+            self.loading = False
+            return
+
+        size = self.log_file.size
+
         if not size:
             self.post_message(ScanComplete(0, 0))
             return
-
-        # time.sleep(0.1)
-        worker = get_current_worker()
 
         log_mmap = mmap.mmap(self.log_file.fileno, size, prot=mmap.PROT_READ)
 
