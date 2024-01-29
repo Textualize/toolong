@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.lazy import Lazy
 from textual.screen import Screen
 from textual.widgets import Footer, TabbedContent, TabPane
 
@@ -39,7 +40,7 @@ class LogScreen(Screen):
         with TabbedContent():
             for path in self.app.file_paths:
                 with TabPane(path):
-                    yield LogView(path, self.app.watcher)
+                    yield Lazy(LogView(path, self.app.watcher))
 
     def on_mount(self) -> None:
         self.query_one(TabbedContent).active_pane.query("LogView > LogLines").focus()
@@ -70,8 +71,18 @@ class UI(App):
     }    
     """
 
+    @classmethod
+    def sort_paths(cls, paths: list[str]) -> None:
+        def key(path) -> list:
+            return [
+                int(token) if token.isdigit() else token
+                for token in path.split("/")[-1].split(".")
+            ]
+
+        return sorted(paths, key=key)
+
     def __init__(self, file_paths: list[str]) -> None:
-        self.file_paths = file_paths
+        self.file_paths = self.sort_paths(file_paths)
         self.watcher = Watcher()
         super().__init__()
 
