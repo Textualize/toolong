@@ -24,6 +24,11 @@ class LogFile:
         assert self.file is not None
         return self.file.fileno()
 
+    @property
+    def is_compressed(self) -> bool:
+        _, encoding = mimetypes.guess_type(self.path.name, strict=False)
+        return encoding in ("gzip", "bzip2")
+
     def open(self, exit_event: Event) -> bool:
         ext = self.path.suffix.lower()
 

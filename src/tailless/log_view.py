@@ -42,6 +42,7 @@ from .highlighter import LogHighlighter
 from .filter_dialog import FilterDialog
 from .line_panel import LinePanel
 from .log_file import LogFile
+from . import log_format
 from .timestamps import parse_extract
 from .watcher import Watcher
 
@@ -445,8 +446,9 @@ class LogLines(ScrollView, inherit_bindings=False):
 
     @work(thread=True)
     def run_scan(self) -> None:
-        time.sleep(0.1)
         worker = get_current_worker()
+        if self.log_file.is_compressed:
+            self.notify(f"Uncompressing {self.log_file.path.name!r}...")
         try:
             if not self.log_file.open(worker.cancelled_event):
                 self.loading = False
@@ -502,12 +504,11 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.post_message(ScanComplete(size, scanned_position))
 
     def index_to_span(self, index: int) -> tuple[int, int]:
-        scan_start = self._scan_start
         if not self._line_breaks:
-            return (scan_start, scan_start)
+            return (self._scan_start, self._scan_start)
         index = clamp(index, 0, len(self._line_breaks))
         if index == 0:
-            return (scan_start, self._line_breaks[0])
+            return (self._scan_start, self._line_breaks[0])
         start = self._line_breaks[index - 1]
         end = (
             self._line_breaks[index]
@@ -566,8 +567,9 @@ class LogLines(ScrollView, inherit_bindings=False):
             if abbreviate and len(line) > MAX_LINE_LENGTH:
                 line = line[:MAX_LINE_LENGTH] + "…"
             _, line, timestamp = parse_extract(line)
-            text = Text(line)
-            text = self.highlighter(text)
+            timestamp, line, text = log_format.parse(line)
+            # text = Text(line)
+            # text = self.highlighter(text)
             self._text_cache[cache_key] = (line, text, timestamp)
         return line, text.copy(), timestamp
 
@@ -617,7 +619,11 @@ class LogLines(ScrollView, inherit_bindings=False):
         except KeyError:
             line, text, timestamp = self.get_text(index, abbreviate=True)
             if timestamp is not None and self.show_timestamps:
-                text = Text.assemble((f"{timestamp} ", "bold  magenta"), text)
+                text = Text.assemble(
+                    (f"{timestamp:%x} ", "bold magenta"),
+                    (f"{timestamp:%X} ", "bold magenta"),
+                    text,
+                )
             text.stylize_before(style)
 
             if is_pointer:
