@@ -2,10 +2,12 @@ from datetime import datetime
 import re
 from typing import TypeAlias
 
+from dateutil.parser import parse as parse_timestamp
 from rich.highlighter import RegexHighlighter
 from rich.text import Text
 
 from .highlighter import LogHighlighter
+from . import timestamps
 
 ParseResult: TypeAlias = tuple[datetime | None, str, Text]
 
@@ -27,13 +29,13 @@ def _combine_regex(*regexes: str) -> str:
 
 
 class LogFormat:
-    def parse(self, line: str, remove_timestamp: bool = True) -> ParseResult | None:
+    def parse(self, line: str) -> ParseResult | None:
         raise NotImplementedError()
 
 
 class RegexLogFormat(LogFormat):
     REGEX = re.compile(".*?")
-    TIMESTAMPS = "%d/%b/%Y:%H:%M:%S %z"
+    TIMESTAMP = "%d/%b/%Y:%H:%M:%S %z"
     HIGHLIGHT_WORDS = ["GET", "PUT", "HEAD", "POST", "DELETE", "OPTIONS", "PATCH"]
 
     # STYLES = {
@@ -52,15 +54,13 @@ class RegexLogFormat(LogFormat):
     # }
     highlighter = LogHighlighter()
 
-    def parse(self, line: str, remove_timestamp: bool = True) -> ParseResult | None:
+    def parse(self, line: str) -> ParseResult | None:
         match = self.REGEX.fullmatch(line)
         if match is None:
             return None
         groups = match.groupdict()
-        timestamp = datetime.strptime(groups["date"], self.TIMESTAMP)
+        _, timestamp = timestamps.parse(groups["date"].strip("[]"))
 
-        if remove_timestamp:
-            line = line.replace(groups["date"], "")
         # text = Text(line)
         # for group_no, match_string in enumerate(match.groups()):
         #     start, end = match.span(group_no)
@@ -68,6 +68,7 @@ class RegexLogFormat(LogFormat):
         text = self.highlighter(line)
 
         text.highlight_words(self.HIGHLIGHT_WORDS, "bold yellow")
+        text.highlight_words(["POST"], "bold red")
 
         return timestamp, line, text
 
@@ -89,7 +90,7 @@ class CombinedLogFormat(RegexLogFormat):
 class DefaultLogFormat(LogFormat):
     highlighter = LogHighlighter()
 
-    def parse(self, line: str, remove_timestamp: bool = True) -> ParseResult | None:
+    def parse(self, line: str) -> ParseResult | None:
         text = self.highlighter(line)
         return None, line, text
 

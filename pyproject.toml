@@ -10,6 +10,7 @@ readme = "README.md"
 python = "^3.8"
 textual = "^0.47.1"
 click = "^8.1.7"
+python-dateutil = "^2.8.2"
 
 [tool.poetry.group.dev.dependencies]
 textual-dev = "^1.4.0"

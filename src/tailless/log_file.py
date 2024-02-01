@@ -73,6 +73,7 @@ class LogFile:
         finally:
             compressed_file.close()
 
+        temp_file.flush()
         self.file = temp_file
         self.size = temp_file.tell()
         self.can_tail = False

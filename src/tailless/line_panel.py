@@ -28,8 +28,6 @@ class LineDisplay(Widget):
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        if self.timestamp is not None:
-            yield Label(f"🕒 {self.timestamp.ctime()}")
         yield Label(self.text)
 
 
