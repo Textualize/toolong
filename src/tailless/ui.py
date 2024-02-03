@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.lazy import Lazy
@@ -33,13 +35,18 @@ class LogScreen(Screen):
     def compose(self) -> ComposeResult:
         assert isinstance(self.app, UI)
         with TabbedContent():
-            for path in self.app.file_paths:
-                with TabPane(path):
-                    yield Lazy(LogView(path, self.app.watcher))
+            if self.app.merge:
+                tab_name = " + ".join(Path(path).name for path in self.app.file_paths)
+                with TabPane(tab_name):
+                    yield Lazy(LogView(self.app.file_paths, self.app.watcher))
+            else:
+                for path in self.app.file_paths:
+                    with TabPane(path):
+                        yield Lazy(LogView([path], self.app.watcher))
 
     def on_mount(self) -> None:
         assert isinstance(self.app, UI)
-        self.query("TabbedContent Tabs").set(display=len(self.app.file_paths) > 1)
+        self.query("TabbedContent Tabs").set(display=len(self.query(TabPane)) > 1)
         active_pane = self.query_one(TabbedContent).active_pane
         if active_pane is not None:
             active_pane.query("LogView > LogLines").focus()
@@ -57,8 +64,9 @@ class UI(App):
 
         return sorted(paths, key=key)
 
-    def __init__(self, file_paths: list[str]) -> None:
+    def __init__(self, file_paths: list[str], merge: bool = False) -> None:
         self.file_paths = self.sort_paths(file_paths)
+        self.merge = merge
         self.watcher = Watcher()
         super().__init__()
 

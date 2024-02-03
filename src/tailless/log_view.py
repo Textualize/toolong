@@ -7,7 +7,7 @@ import re
 import time
 from queue import Empty, Queue
 from threading import Thread, Event
-from typing import Mapping
+from typing import Iterable, Mapping
 
 import rich.repr
 from rich.text import Text
@@ -61,6 +61,8 @@ class LineRead(Message):
 
 
 class LineReader(Thread):
+    """A thread which read lines from log files."""
+
     def __init__(self, log_lines: LogLines) -> None:
         self.log_lines = log_lines
         self.queue: Queue[tuple[int, int, int]] = Queue(maxsize=1000)
@@ -74,6 +76,7 @@ class LineReader(Thread):
             self.queue.put((index, start, end))
 
     def stop(self) -> None:
+        """Stop the thread and join."""
         self.exit_event.set()
         self.queue.put((-1, 0, 0))
         self.join()
@@ -189,6 +192,7 @@ class DismissOverlay(Message):
 @rich.repr.auto
 @dataclass
 class NewBreaks(Message):
+    log_file: LogFile
     breaks: list[int]
     scanned_size: int = 0
     tail: bool = False
@@ -429,17 +433,17 @@ class LogLines(ScrollView, inherit_bindings=False):
     tail: reactive[bool] = reactive(True)
     show_line_numbers: reactive[bool] = reactive(False)
 
-    def __init__(self, watcher: Watcher, file_path: str) -> None:
+    def __init__(self, watcher: Watcher, file_paths: list[str]) -> None:
         super().__init__()
         self.watcher = watcher
-        self.file_path = file_path
-        self.log_file = LogFile(file_path)
+        self.file_paths = file_paths
+        self.log_files = [LogFile(path) for path in file_paths]
         self._render_line_cache: LRUCache[object, Strip] = LRUCache(maxsize=1000)
         self._max_width = 0
         self._search_index: LRUCache[str, str] = LRUCache(maxsize=10000)
         self._suggester = SearchSuggester(self._search_index)
         self.icons: dict[int, str] = {}
-        self._line_breaks: list[int] = []
+        self._line_breaks: dict[LogFile, list[int]] = {}
         self._line_cache: LRUCache[tuple[int, int], str] = LRUCache(10000)
         self._text_cache: LRUCache[
             tuple[int, int, bool], tuple[str, Text, datetime | None]
@@ -451,6 +455,14 @@ class LogLines(ScrollView, inherit_bindings=False):
         self._scan_start = 0
         self._gutter_width = 0
         self._line_reader = LineReader(self)
+
+    @property
+    def file_path(self) -> str:
+        return self.file_paths[0]
+
+    @property
+    def log_file(self) -> LogFile:
+        return self.log_files[0]
 
     @property
     def line_count(self) -> int:
@@ -488,15 +500,7 @@ class LogLines(ScrollView, inherit_bindings=False):
     def on_mount(self) -> None:
         self.loading = True
         self.add_class("-scanning")
-
-        # fileno, size = self.watcher.add(self.file_path, size_changed, watch_error)
-        # self.log_file.open()
-        # size = self.log_file.size
-
         self._line_reader.start()
-
-        # self.disabled = True
-        # self._scan_start = max(0, size - 1)
         self.initial_scan_worker = self.run_scan()
         # self.start_tail()
 
@@ -507,7 +511,7 @@ class LogLines(ScrollView, inherit_bindings=False):
             if self.message_queue_size > 10:
                 while self.message_queue_size > 2:
                     time.sleep(0.1)
-            self.post_message(NewBreaks(breaks, size, tail=True))
+            self.post_message(NewBreaks(self.log_file, breaks, size, tail=True))
 
         def watch_error(error: Exception) -> None:
             """Callback when there is an error watching the file."""
@@ -546,57 +550,62 @@ class LogLines(ScrollView, inherit_bindings=False):
             self.post_message(ScanComplete(0, 0))
             return
 
-        log_mmap = mmap.mmap(self.log_file.fileno, size, prot=mmap.PROT_READ)
+        position = size
 
-        breaks: list[int] = []
+        for position, breaks in self._scan_file(self.log_file.fileno, size):
+            self.post_message(ScanProgress(size, size - position, position))
+            if breaks:
+                self.post_message(NewBreaks(self.log_file, breaks))
+            if worker.is_cancelled:
+                break
+        else:
+            self.post_message(ScanComplete(size, position))
+            return
+        self.post_message(ScanComplete(size, 0))
 
-        scanned_position = position = size
-        append = breaks.append
-        get_length = breaks.__len__
+    @classmethod
+    def _scan_file(
+        cls, fileno: int, size: int, batch_time: float = 0.25
+    ) -> Iterable[tuple[int, list[int]]]:
+        """Find line breaks in a file."""
+        log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
         rfind = log_mmap.rfind
-
+        position = size
+        batch: list[int] = []
+        append = batch.append
+        get_length = batch.__len__
         monotonic = time.monotonic
         break_time = monotonic()
 
         while (position := rfind(b"\n", 0, position)) != -1:
             append(position)
-            if get_length() % 1000 == 0 and monotonic() - break_time > 0.25:
-                break_time = time.monotonic()
-                if worker.is_cancelled:
-                    break
-                self.post_message(ScanProgress(size, size - position, position))
-                self.post_message(NewBreaks(breaks.copy()))
-                scanned_position = position
-                breaks.clear()
-        else:
-            self.post_message(ScanProgress(size, size, 0))
-            if breaks:
-                self.post_message(NewBreaks(breaks.copy()))
-            self.post_message(ScanComplete(size, 0))
-            return
+            if get_length() % 1000 == 0 and monotonic() - break_time > batch_time:
+                yield (position, batch)
+                batch = []
+        if position:
+            yield (0, batch)
 
-        self.post_message(ScanComplete(size, scanned_position))
-
-    def index_to_span(self, index: int) -> tuple[int, int]:
-        if not self._line_breaks:
+    def index_to_span(self, log_file: LogFile, index: int) -> tuple[int, int]:
+        line_breaks = self._line_breaks.setdefault(log_file, [])
+        if not line_breaks:
             return (self._scan_start, self._scan_start)
-        index = clamp(index, 0, len(self._line_breaks))
+        index = clamp(index, 0, len(line_breaks))
         if index == 0:
-            return (self._scan_start, self._line_breaks[0])
-        start = self._line_breaks[index - 1]
+            return (self._scan_start, line_breaks[0])
+        start = line_breaks[index - 1]
         end = (
-            self._line_breaks[index]
-            if index < len(self._line_breaks)
+            line_breaks[index]
+            if index < len(line_breaks)
             else max(0, self._scanned_size - 1)
         )
         return (start, end)
 
     def get_line_from_index_blocking(self, index: int) -> str:
-        start, end = self.index_to_span(index)
+        start, end = self.index_to_span(self.log_file, index)
         return self._get_line(start, end)
 
     def get_line_from_index(self, index: int) -> str | None:
-        start, end = self.index_to_span(index)
+        start, end = self.index_to_span(self.log_file, index)
         return self.get_line(index, start, end)
 
     def _get_line(self, start: int, end: int) -> str:
@@ -623,9 +632,13 @@ class LogLines(ScrollView, inherit_bindings=False):
         return line
 
     def get_text(
-        self, line_index: int, abbreviate: bool = False, block: bool = False
+        self,
+        log_file: LogFile,
+        line_index: int,
+        abbreviate: bool = False,
+        block: bool = False,
     ) -> tuple[str, Text, datetime | None]:
-        start, end = self.index_to_span(line_index)
+        start, end = self.index_to_span(log_file, line_index)
         cache_key = (start, end, abbreviate)
         try:
             line, text, timestamp = self._text_cache[cache_key]
@@ -661,7 +674,7 @@ class LogLines(ScrollView, inherit_bindings=False):
             max(0, scroll_y - page_height),
             min(line_count, scroll_y + page_height + page_height),
         ):
-            span = index_to_span(index)
+            span = index_to_span(self.log_file, index)
             if span not in self._line_cache:
                 self._line_reader.request_line(index, *span)
         if self.show_line_numbers:
@@ -681,7 +694,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         if index >= self.line_count:
             return Strip.blank(width, style)
 
-        span = self.index_to_span(index)
+        span = self.index_to_span(self.log_file, index)
 
         is_pointer = self.pointer_line is not None and index == self.pointer_line
         cache_key = (span, is_pointer)
@@ -689,7 +702,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         try:
             strip = self._render_line_cache[cache_key]
         except KeyError:
-            line, text, timestamp = self.get_text(index, abbreviate=True)
+            line, text, timestamp = self.get_text(self.log_file, index, abbreviate=True)
             text.stylize_before(style)
 
             if is_pointer:
@@ -936,10 +949,9 @@ class LogLines(ScrollView, inherit_bindings=False):
         if tail:
             self.update_line_count()
             self.scroll_to(y=self.max_scroll_y, animate=False)
-            self.pointer_line = self.scroll_offset.y
 
     def update_line_count(self) -> None:
-        line_count = len(self._line_breaks)
+        line_count = len(self._line_breaks.get(self.log_file, []))
         # if self._line_breaks and self._line_breaks[-1] != self._scanned_size:
         #     line_count += 1
         line_count = max(1, line_count)
@@ -952,15 +964,16 @@ class LogLines(ScrollView, inherit_bindings=False):
 
     @on(NewBreaks)
     def on_new_breaks(self, event: NewBreaks) -> None:
-        first = not not self._line_breaks
+        line_breaks = self._line_breaks.setdefault(event.log_file, [])
+        first = not not line_breaks
         event.stop()
         self._scanned_size = max(self._scanned_size, event.scanned_size)
         if not self.tail and event.tail:
-            self.post_message(PendingLines(len(self._line_breaks) - self.line_count))
+            self.post_message(PendingLines(len(line_breaks) - self.line_count))
 
-        self._line_breaks.extend(event.breaks)
+        line_breaks.extend(event.breaks)
         if not event.tail:
-            self._line_breaks.sort()
+            line_breaks.sort()
 
         distance_from_end = self.virtual_size.height - self.scroll_offset.y
 
@@ -1068,14 +1081,14 @@ class LogView(Horizontal):
     show_line_numbers: reactive[bool] = reactive(False)
     tail: reactive[bool] = reactive(False)
 
-    def __init__(self, file_path: str, watcher: Watcher) -> None:
-        self.file_path = file_path
+    def __init__(self, file_paths: list[str], watcher: Watcher) -> None:
+        self.file_paths = file_paths
         self.watcher = watcher
         super().__init__()
 
     def compose(self) -> ComposeResult:
         yield (
-            log_lines := LogLines(self.watcher, self.file_path).data_bind(
+            log_lines := LogLines(self.watcher, self.file_paths).data_bind(
                 LogView.tail,
                 LogView.show_line_numbers,
                 LogView.show_find,
@@ -1142,7 +1155,7 @@ class LogView(Horizontal):
         pointer_line = self.query_one(LogLines).pointer_line
         if pointer_line is not None:
             line, text, timestamp = self.query_one(LogLines).get_text(
-                pointer_line, block=True
+                self.log_file, pointer_line, block=True
             )
             await self.query_one(LinePanel).update(line, text, timestamp)
 
@@ -1162,7 +1175,9 @@ class LogView(Horizontal):
         log_footer = self.query_one(LogFooter)
         log_footer.line_no = pointer_line
 
-        _, _, timestamp = log_lines.get_text(pointer_line, block=True)
+        _, _, timestamp = log_lines.get_text(
+            log_lines.log_file, pointer_line, block=True
+        )
         log_footer.timestamp = timestamp
 
     @on(PendingLines)
