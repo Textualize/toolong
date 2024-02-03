@@ -118,11 +118,6 @@ class SearchSuggester(Suggester):
         return start + search_hit
 
 
-class LineKey:
-    dimmed: bool
-    highlighted: bool
-
-
 class InfoOverlay(Widget):
     DEFAULT_CSS = """
     InfoOverlay {
@@ -252,6 +247,30 @@ class ScanComplete(Message):
     scan_start: int
 
 
+class FooterKey(Label):
+
+    DEFAULT_CSS = """
+    FooterKey {
+        color: $success;
+        padding: 0 1 0 0;
+        text-style: bold;
+        &:hover {
+            text-style: bold underline;            
+            # color: $success;
+        }
+    }
+    """
+    DEFAULT_CLASSES = "key"
+
+    def __init__(self, key: str, description: str) -> None:
+        self.key = key
+        self.description = description
+        super().__init__()
+
+    def render(self) -> str:
+        return f"[reverse]{self.key.upper()}[/reverse] {self.description}"
+
+
 class LogFooter(Widget):
     DEFAULT_CSS = """
     LogFooter {
@@ -261,20 +280,11 @@ class LogFooter(Widget):
         dock: bottom;
         Horizontal {
             width: 1fr;
-            height: 1;
-            
+            height: 1;            
         }
-        .tail {
-            # background: $error 10%;
+        .tail {            
             color: $warning;
-            padding: 0 1;
-            
-            &.on {
-            
-                #  background: $success 10%;
-                #  color: $success;               
-             }
-            
+            padding: 0 1 0 0;                        
         }
         .line-no {
             width: auto;
@@ -288,6 +298,16 @@ class LogFooter(Widget):
             color: $warning;
             padding: 0 1;
         }
+        .tail {
+            padding: 0 1;
+            background: $success 15%;
+            color: $success;
+            text-style: bold;
+            display: none;
+            &.on {
+                display: block;
+            }
+        }
     }
     """
     line_no: reactive[int | None] = reactive(None)
@@ -295,20 +315,35 @@ class LogFooter(Widget):
     tail: reactive[bool] = reactive(False)
 
     def compose(self) -> ComposeResult:
-        with Horizontal():
-            yield Label(" [b]✔[/] [bold reverse]T[/]ail ", classes="tail key")
+        with Horizontal(classes="key-container"):
+            pass
+        yield Label("TAIL", classes="tail")
         yield Label("", classes="timestamp")
         yield Label("", classes="line-no")
 
-    def watch_tail(self, tail: bool) -> None:
-        try:
-            tail_label = self.query_one(".tail", Label)
-        except NoMatches:
-            return
-        tail_label.update(
-            "[bold reverse] ✔ Tail " if tail else " [dim]✔[/] [bold reverse]T[/]ail "
+    async def mount_keys(self) -> None:
+        key_container = self.query_one(".key-container")
+        await key_container.query(".key").remove()
+        bindings = [
+            binding
+            for (_, binding) in self.app.namespace_bindings.values()
+            if binding.show
+        ]
+
+        await key_container.mount_all(
+            [
+                FooterKey(binding.key_display or binding.key, binding.description)
+                for binding in bindings
+            ]
         )
-        tail_label.set_class(tail, "on")
+
+    async def on_mount(self):
+        self.watch(self.screen, "focused", self.mount_keys)
+        self.watch(self.screen, "stack_updates", self.mount_keys)
+        self.call_after_refresh(self.mount_keys)
+
+    def watch_tail(self, tail: bool) -> None:
+        self.query(".tail").set_class(tail, "on")
 
     def watch_line_no(self, line_no: int | None) -> None:
         self.query_one(".line-no", Label).update(
@@ -320,6 +355,14 @@ class LogFooter(Widget):
             self.query_one(".timestamp", Label).update("")
         else:
             self.query_one(".timestamp", Label).update(f"{timestamp:%x %X}")
+
+
+@dataclass
+class PointerMoved(Message):
+    pointer_line: int | None
+
+    def can_replace(self, message: Message) -> bool:
+        return isinstance(message, PointerMoved)
 
 
 class LogLines(ScrollView, inherit_bindings=False):
@@ -351,6 +394,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         &:focus {
             border: heavy $accent;
         }
+
         border-subtitle-color: $success;
         border-subtitle-align: center;        
         align: center middle;
@@ -384,13 +428,6 @@ class LogLines(ScrollView, inherit_bindings=False):
     pending_lines: reactive[int] = reactive(int)
     tail: reactive[bool] = reactive(True)
     show_line_numbers: reactive[bool] = reactive(False)
-
-    @dataclass
-    class PointerMoved(Message):
-        pointer_line: int | None
-
-        def can_replace(self, message: Message) -> bool:
-            return isinstance(message, LogLines.PointerMoved)
 
     def __init__(self, watcher: Watcher, file_path: str) -> None:
         super().__init__()
@@ -605,8 +642,6 @@ class LogLines(ScrollView, inherit_bindings=False):
                 line = line[:MAX_LINE_LENGTH] + "…"
 
             timestamp, line, text = log_format.parse(line)
-            # text = Text(line)
-            # text = self.highlighter(text)
             self._text_cache[cache_key] = (line, text, timestamp)
         return line, text.copy(), timestamp
 
@@ -777,7 +812,9 @@ class LogLines(ScrollView, inherit_bindings=False):
                     self.pointer_line = line_no
                     break
         else:
-            self.pointer_line = next(iter(line_range), self.pointer_line)
+            self.pointer_line = next(
+                iter(line_range), self.pointer_line or self.scroll_offset.y
+            )
         if first:
             self.refresh()
         else:
@@ -820,7 +857,9 @@ class LogLines(ScrollView, inherit_bindings=False):
         if pointer_line is not None:
             self.refresh_line(pointer_line)
         self.show_gutter = pointer_line is not None
-        self.post_message(LogLines.PointerMoved(pointer_line))
+        self.post_message(PointerMoved(pointer_line))
+        if pointer_line is None:
+            self.post_message(TailFile(False))
 
     def action_scroll_up(self) -> None:
         if self.pointer_line is None:
@@ -893,10 +932,11 @@ class LogLines(ScrollView, inherit_bindings=False):
             self.post_message(DismissOverlay())
 
     def watch_tail(self, tail: bool) -> None:
+        self.set_class(tail, "-tail")
         if tail:
             self.update_line_count()
             self.scroll_to(y=self.max_scroll_y, animate=False)
-            self.pointer_line = None
+            self.pointer_line = self.scroll_offset.y
 
     def update_line_count(self) -> None:
         line_count = len(self._line_breaks)
@@ -949,8 +989,7 @@ class LogLines(ScrollView, inherit_bindings=False):
             )
 
     def watch_scroll_y(self, old_value: float, new_value: float) -> None:
-        if self.pointer_line is None:
-            self.post_message(self.PointerMoved(int(new_value)))
+        self.post_message(PointerMoved(self.pointer_line))
         super().watch_scroll_y(old_value, new_value)
 
     @on(scrollbar.ScrollTo)
@@ -1004,14 +1043,24 @@ class LogView(Horizontal):
         LinePanel {
             width: 50%;
             display: none;            
-        }              
+        }
+        LogFooter .key {            
+            opacity: 0;
+            transition: opacity 200ms;
+        }
+        &.lines-view LogFooter .key {
+            
+            opacity: 1;
+        }
     }
     """
 
     BINDINGS = [
-        Binding("t", "toggle('tail')"),
-        Binding("f", "toggle('show_find')", "Find"),
-        Binding("l", "toggle('show_line_numbers')", "Line numbers"),
+        Binding("ctrl+t", "toggle('tail')", "Tail", key_display="^t"),
+        Binding("ctrl+f", "toggle('show_find')", "Find", key_display="^f"),
+        Binding(
+            "ctrl+l", "toggle('show_line_numbers')", "Line numbers", key_display="^l"
+        ),
     ]
 
     show_find: reactive[bool] = reactive(False)
@@ -1097,20 +1146,24 @@ class LogView(Horizontal):
             )
             await self.query_one(LinePanel).update(line, text, timestamp)
 
-    @on(LogLines.PointerMoved)
-    async def pointer_moved(self, event: LogLines.PointerMoved):
+    @on(PointerMoved)
+    async def pointer_moved(self, event: PointerMoved):
         if event.pointer_line is None:
             self.show_panel = False
         if self.show_panel:
             await self.update_panel()
 
-        self.query_one(LogFooter).line_no = event.pointer_line
         log_lines = self.query_one(LogLines)
-        if event.pointer_line is None:
-            self.query_one(LogFooter).timestamp = None
-        else:
-            _, _, timestamp = log_lines.get_text(event.pointer_line, block=True)
-            self.query_one(LogFooter).timestamp = timestamp
+        pointer_line = (
+            log_lines.scroll_offset.y
+            if event.pointer_line is None
+            else event.pointer_line
+        )
+        log_footer = self.query_one(LogFooter)
+        log_footer.line_no = pointer_line
+
+        _, _, timestamp = log_lines.get_text(pointer_line, block=True)
+        log_footer.timestamp = timestamp
 
     @on(PendingLines)
     def on_pending_lines(self, event: PendingLines) -> None:
@@ -1130,4 +1183,15 @@ class LogView(Horizontal):
         log_lines = self.query_one(LogLines)
         log_lines.loading = False
         self.query_one("LogLines").remove_class("-scanning")
+        self.post_message(PointerMoved(log_lines.pointer_line))
+
         # log_lines.start_tail()
+
+    @on(events.DescendantFocus)
+    @on(events.DescendantBlur)
+    def on_descendant_focus(self, event: events.DescendantBlur) -> None:
+        self.set_class(isinstance(self.screen.focused, LogLines), "lines-view")
+
+    # @on(events.DescendantBlur)
+    # def on_descendant_blur(self, event: events.DescendantBlur) -> None:
+    #     self.remove_class("lines-view")
