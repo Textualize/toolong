@@ -266,13 +266,17 @@ class FooterKey(Label):
     """
     DEFAULT_CLASSES = "key"
 
-    def __init__(self, key: str, description: str) -> None:
+    def __init__(self, key: str, key_display: str, description: str) -> None:
         self.key = key
+        self.key_display = key_display
         self.description = description
         super().__init__()
 
     def render(self) -> str:
-        return f"[reverse]{self.key.upper()}[/reverse] {self.description}"
+        return f"[reverse]{self.key_display}[/reverse] {self.description}"
+
+    async def on_click(self) -> None:
+        await self.app.check_bindings(self.key)
 
 
 class LogFooter(Widget):
@@ -336,7 +340,9 @@ class LogFooter(Widget):
 
         await key_container.mount_all(
             [
-                FooterKey(binding.key_display or binding.key, binding.description)
+                FooterKey(
+                    binding.key, binding.key_display or binding.key, binding.description
+                )
                 for binding in bindings
             ]
         )
@@ -567,7 +573,10 @@ class LogLines(ScrollView, inherit_bindings=False):
     def _scan_file(
         cls, fileno: int, size: int, batch_time: float = 0.25
     ) -> Iterable[tuple[int, list[int]]]:
-        """Find line breaks in a file."""
+        """Find line breaks in a file.
+
+        Yields lists of offsets.
+        """
         log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
         rfind = log_mmap.rfind
         position = size
@@ -582,8 +591,7 @@ class LogLines(ScrollView, inherit_bindings=False):
             if get_length() % 1000 == 0 and monotonic() - break_time > batch_time:
                 yield (position, batch)
                 batch = []
-        if position:
-            yield (0, batch)
+        yield (0, batch)
 
     def index_to_span(self, log_file: LogFile, index: int) -> tuple[int, int]:
         line_breaks = self._line_breaks.setdefault(log_file, [])
@@ -633,11 +641,11 @@ class LogLines(ScrollView, inherit_bindings=False):
 
     def get_text(
         self,
-        log_file: LogFile,
         line_index: int,
         abbreviate: bool = False,
         block: bool = False,
     ) -> tuple[str, Text, datetime | None]:
+        log_file = self.log_files[0]
         start, end = self.index_to_span(log_file, line_index)
         cache_key = (start, end, abbreviate)
         try:
@@ -684,7 +692,10 @@ class LogLines(ScrollView, inherit_bindings=False):
             self._gutter_width = 0
         if self.pointer_line is not None:
             self._gutter_width += 3
-        return super().render_lines(crop)
+        try:
+            return super().render_lines(crop)
+        finally:
+            self.update_line_count()
 
     def render_line(self, y: int) -> Strip:
         scroll_x, scroll_y = self.scroll_offset
@@ -702,7 +713,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         try:
             strip = self._render_line_cache[cache_key]
         except KeyError:
-            line, text, timestamp = self.get_text(self.log_file, index, abbreviate=True)
+            line, text, timestamp = self.get_text(index, abbreviate=True)
             text.stylize_before(style)
 
             if is_pointer:
@@ -871,8 +882,8 @@ class LogLines(ScrollView, inherit_bindings=False):
             self.refresh_line(pointer_line)
         self.show_gutter = pointer_line is not None
         self.post_message(PointerMoved(pointer_line))
-        if pointer_line is None:
-            self.post_message(TailFile(False))
+        # if pointer_line is None:
+        #     self.post_message(TailFile(False))
 
     def action_scroll_up(self) -> None:
         if self.pointer_line is None:
@@ -949,6 +960,8 @@ class LogLines(ScrollView, inherit_bindings=False):
         if tail:
             self.update_line_count()
             self.scroll_to(y=self.max_scroll_y, animate=False)
+            if tail:
+                self.pointer_line = None
 
     def update_line_count(self) -> None:
         line_count = len(self._line_breaks.get(self.log_file, []))
@@ -1155,7 +1168,7 @@ class LogView(Horizontal):
         pointer_line = self.query_one(LogLines).pointer_line
         if pointer_line is not None:
             line, text, timestamp = self.query_one(LogLines).get_text(
-                self.log_file, pointer_line, block=True
+                pointer_line, block=True
             )
             await self.query_one(LinePanel).update(line, text, timestamp)
 
@@ -1175,9 +1188,7 @@ class LogView(Horizontal):
         log_footer = self.query_one(LogFooter)
         log_footer.line_no = pointer_line
 
-        _, _, timestamp = log_lines.get_text(
-            log_lines.log_file, pointer_line, block=True
-        )
+        _, _, timestamp = log_lines.get_text(pointer_line, block=True)
         log_footer.timestamp = timestamp
 
     @on(PendingLines)
