@@ -562,8 +562,11 @@ class LogLines(ScrollView, inherit_bindings=False):
         worker = get_current_worker()
 
         if len(self.log_files) > 1:
-            filenames = " + ".join(log_file.name for log_file in self.log_files)
-            self.notify(f"{filenames}", title="Merging", severity="warning")
+            self.notify(
+                f"Merging {len(self.log_files)} files",
+                title="Please wait",
+                severity="warning",
+            )
             self.merge_log_files()
             self.post_message(ScanComplete(0, 0))
             return
