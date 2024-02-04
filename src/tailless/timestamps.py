@@ -108,11 +108,20 @@ def parse(line: str) -> tuple[TimestampFormat | None, datetime | None]:
 
 
 class TimestampScanner:
+    """Scan a line for something that looks like a timestamp."""
 
     def __init__(self) -> None:
         self._timestamp_formats = TIMESTAMP_FORMATS.copy()
 
     def scan(self, line: str) -> datetime | None:
+        """Scan a line.
+
+        Args:
+            line: A log line with a timestamp.
+
+        Returns:
+            A datetime or `None` if no timestamp was found.
+        """
         for index, timestamp_format in enumerate(self._timestamp_formats):
             regex, parse_callable = timestamp_format
             if (match := re.search(regex, line)) is not None:

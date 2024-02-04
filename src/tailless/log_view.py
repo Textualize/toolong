@@ -54,7 +54,10 @@ MAX_LINE_LENGTH = 1000
 
 @dataclass
 class LineRead(Message):
+    """A line has been read from the file."""
+
     index: int
+    log_file: LogFile
     start: int
     end: int
     line: str
@@ -65,20 +68,21 @@ class LineReader(Thread):
 
     def __init__(self, log_lines: LogLines) -> None:
         self.log_lines = log_lines
-        self.queue: Queue[tuple[int, int, int]] = Queue(maxsize=1000)
+        self.queue: Queue[tuple[LogFile | None, int, int, int]] = Queue(maxsize=1000)
         self.exit_event = Event()
-        self.pending: set[tuple[int, int, int]] = set()
+        self.pending: set[tuple[LogFile | None, int, int, int]] = set()
         super().__init__()
 
-    def request_line(self, index: int, start: int, end: int) -> None:
-        request = (index, start, end)
+    def request_line(self, log_file: LogFile, index: int, start: int, end: int) -> None:
+        request = (log_file, index, start, end)
         if request not in self.pending:
-            self.queue.put((index, start, end))
+            self.pending.add(request)
+            self.queue.put(request)
 
     def stop(self) -> None:
         """Stop the thread and join."""
         self.exit_event.set()
-        self.queue.put((-1, 0, 0))
+        self.queue.put((None, -1, 0, 0))
         self.join()
 
     def run(self) -> None:
@@ -90,16 +94,17 @@ class LineReader(Thread):
                 continue
             else:
                 self.pending.discard(request)
-                index, start, end = request
+                log_file, index, start, end = request
                 self.queue.task_done()
-                if self.exit_event.is_set() or index == -1:
+                if self.exit_event.is_set() or log_file is None:
                     break
                 log_lines.post_message(
                     LineRead(
                         index,
+                        log_file,
                         start,
                         end,
-                        log_lines._get_line(start, end),
+                        log_file.get_line(start, end),
                     )
                 )
 
@@ -444,15 +449,17 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.watcher = watcher
         self.file_paths = file_paths
         self.log_files = [LogFile(path) for path in file_paths]
-        self._render_line_cache: LRUCache[object, Strip] = LRUCache(maxsize=1000)
+        self._render_line_cache: LRUCache[tuple[LogFile, int, int, bool], Strip] = (
+            LRUCache(maxsize=1000)
+        )
         self._max_width = 0
         self._search_index: LRUCache[str, str] = LRUCache(maxsize=10000)
         self._suggester = SearchSuggester(self._search_index)
         self.icons: dict[int, str] = {}
         self._line_breaks: dict[LogFile, list[int]] = {}
-        self._line_cache: LRUCache[tuple[int, int], str] = LRUCache(10000)
+        self._line_cache: LRUCache[tuple[LogFile, int, int], str] = LRUCache(10000)
         self._text_cache: LRUCache[
-            tuple[int, int, bool], tuple[str, Text, datetime | None]
+            tuple[LogFile, int, int, bool], tuple[str, Text, datetime | None]
         ] = LRUCache(1000)
         self.highlighter = LogHighlighter()
         self.initial_scan_worker: Worker | None = None
@@ -593,50 +600,56 @@ class LogLines(ScrollView, inherit_bindings=False):
                 batch = []
         yield (0, batch)
 
-    def index_to_span(self, log_file: LogFile, index: int) -> tuple[int, int]:
+    def get_log_file_from_index(self, index: int) -> tuple[LogFile, int]:
+        return self.log_files[0], index
+
+    def index_to_span(self, index: int) -> tuple[LogFile, int, int]:
+        log_file, index = self.get_log_file_from_index(index)
         line_breaks = self._line_breaks.setdefault(log_file, [])
         if not line_breaks:
-            return (self._scan_start, self._scan_start)
+            return (log_file, self._scan_start, self._scan_start)
         index = clamp(index, 0, len(line_breaks))
         if index == 0:
-            return (self._scan_start, line_breaks[0])
+            return (log_file, self._scan_start, line_breaks[0])
         start = line_breaks[index - 1]
         end = (
             line_breaks[index]
             if index < len(line_breaks)
             else max(0, self._scanned_size - 1)
         )
-        return (start, end)
+        return (log_file, start, end)
 
     def get_line_from_index_blocking(self, index: int) -> str:
-        start, end = self.index_to_span(self.log_file, index)
-        return self._get_line(start, end)
+        log_file, start, end = self.index_to_span(index)
+        return log_file.get_line(start, end)
 
     def get_line_from_index(self, index: int) -> str | None:
-        start, end = self.index_to_span(self.log_file, index)
-        return self.get_line(index, start, end)
+        log_file, start, end = self.index_to_span(index)
+        return self.get_line(log_file, index, start, end)
 
-    def _get_line(self, start: int, end: int) -> str:
-        line_bytes = self.log_file.get_raw(start, end)
-        line = line_bytes.decode("utf-8", errors="replace").strip("\n\r").expandtabs(4)
-        return line
+    def _get_line(self, log_file: LogFile, start: int, end: int) -> str:
+        return log_file.get_line(start, end)
 
-    def get_line(self, index: int, start: int, end: int) -> str | None:
-        cache_key = (start, end)
+    def get_line(
+        self, log_file: LogFile, index: int, start: int, end: int
+    ) -> str | None:
+        cache_key = (log_file, start, end)
         try:
             line = self._line_cache[cache_key]
         except KeyError:
-            self._line_reader.request_line(index, start, end)
+            self._line_reader.request_line(log_file, index, start, end)
             return None
         return line
 
-    def get_line_blocking(self, index: int, start: int, end: int) -> str:
-        cache_key = (start, end)
+    def get_line_blocking(
+        self, log_file: LogFile, index: int, start: int, end: int
+    ) -> str:
+        cache_key = (log_file, start, end)
         try:
             line = self._line_cache[cache_key]
         except KeyError:
-            line = self._get_line(start, end)
-            self._line_cache[(start, end)] = line
+            line = self._get_line(log_file, start, end)
+            self._line_cache[cache_key] = line
         return line
 
     def get_text(
@@ -645,17 +658,16 @@ class LogLines(ScrollView, inherit_bindings=False):
         abbreviate: bool = False,
         block: bool = False,
     ) -> tuple[str, Text, datetime | None]:
-        log_file = self.log_files[0]
-        start, end = self.index_to_span(log_file, line_index)
-        cache_key = (start, end, abbreviate)
+        log_file, start, end = self.index_to_span(line_index)
+        cache_key = (log_file, start, end, abbreviate)
         try:
             line, text, timestamp = self._text_cache[cache_key]
         except KeyError:
             new_line: str | None
             if block:
-                new_line = self.get_line_blocking(line_index, start, end)
+                new_line = self.get_line_blocking(log_file, line_index, start, end)
             else:
-                new_line = self.get_line(line_index, start, end)
+                new_line = self.get_line(log_file, line_index, start, end)
             if new_line is None:
                 return "", Text(""), None
             line = new_line
@@ -682,9 +694,10 @@ class LogLines(ScrollView, inherit_bindings=False):
             max(0, scroll_y - page_height),
             min(line_count, scroll_y + page_height + page_height),
         ):
-            span = index_to_span(self.log_file, index)
-            if span not in self._line_cache:
-                self._line_reader.request_line(index, *span)
+            log_file_span = index_to_span(index)
+            if log_file_span not in self._line_cache:
+                log_file, *span = log_file_span
+                self._line_reader.request_line(log_file, index, *span)
         if self.show_line_numbers:
             max_line_no = self.scroll_offset.y + page_height
             self._gutter_width = len(f"{max_line_no+1} ")
@@ -705,10 +718,10 @@ class LogLines(ScrollView, inherit_bindings=False):
         if index >= self.line_count:
             return Strip.blank(width, style)
 
-        span = self.index_to_span(self.log_file, index)
+        log_file_span = self.index_to_span(index)
 
         is_pointer = self.pointer_line is not None and index == self.pointer_line
-        cache_key = (span, is_pointer)
+        cache_key = (*log_file_span, is_pointer)
 
         try:
             strip = self._render_line_cache[cache_key]
@@ -1047,11 +1060,12 @@ class LogLines(ScrollView, inherit_bindings=False):
         event.stop()
         start = event.start
         end = event.end
-        self._render_line_cache.discard(((start, end), True))
-        self._render_line_cache.discard(((start, end), False))
-        self._line_cache[(start, end)] = event.line
-        self._text_cache.discard((start, end, False))
-        self._text_cache.discard((start, end, True))
+        log_file = event.log_file
+        self._render_line_cache.discard((log_file, start, end, True))
+        self._render_line_cache.discard((log_file, start, end, False))
+        self._line_cache[(log_file, start, end)] = event.line
+        self._text_cache.discard((log_file, start, end, False))
+        self._text_cache.discard((log_file, start, end, True))
         self.refresh_lines(event.index, 1)
 
 

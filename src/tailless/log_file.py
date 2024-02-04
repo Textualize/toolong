@@ -5,16 +5,22 @@ from typing import IO
 from threading import Event
 
 
+from .timestamps import TimestampScanner
+
+
 class LogError(Exception):
-    pass
+    """An error related to logs."""
 
 
 class LogFile:
+    """A single log file."""
+
     def __init__(self, path: str) -> None:
         self.path = Path(path)
         self.file: IO[bytes] | None = None
         self.size = 0
         self.can_tail = False
+        self.timestamp_scanner = TimestampScanner()
 
     def is_open(self) -> bool:
         return self.file is not None
@@ -30,18 +36,19 @@ class LogFile:
         return encoding in ("gzip", "bzip2")
 
     def open(self, exit_event: Event) -> bool:
-        ext = self.path.suffix.lower()
 
+        # Check for compressed files
         _, encoding = mimetypes.guess_type(self.path.name, strict=False)
 
+        # Open compressed files
         if encoding in ("gzip", "bzip2"):
             return self.open_compressed(exit_event, encoding)
 
+        # Open uncompressed file
         self.file = open(self.path, "rb", buffering=0)
         self.file.seek(0, os.SEEK_END)
         self.size = self.file.tell()
         self.can_tail = True
-
         return True
 
     def open_compressed(self, exit_event: Event, encoding: str) -> bool:
@@ -89,6 +96,11 @@ class LogFile:
             return b""
         raw_data = os.pread(self.fileno, end - start, start)
         return raw_data
+
+    def get_line(self, start: int, end: int) -> str:
+        line_bytes = self.get_raw(start, end)
+        line = line_bytes.decode("utf-8", errors="replace").strip("\n\r").expandtabs(4)
+        return line
 
     def read(self, size: int) -> bytes:
         assert self.file is not None, "Must be open to read"

@@ -21,13 +21,6 @@ def _combine_regex(*regexes: str) -> str:
     return "|".join(regexes)
 
 
-# class LogHighlighter(RegexHighlighter):
-#     base_style = "repr."
-#     highlights = [
-#         r"(?<![\\\w])(?P<str>b?'''.*?(?<!\\)'''|b?'.*?(?<!\\)'|b?\"\"\".*?(?<!\\)\"\"\"|b?\".*?(?<!\\)\")",
-#     ]
-
-
 class LogFormat:
     def parse(self, line: str) -> ParseResult | None:
         raise NotImplementedError()
@@ -38,20 +31,6 @@ class RegexLogFormat(LogFormat):
     TIMESTAMP = "%d/%b/%Y:%H:%M:%S %z"
     HIGHLIGHT_WORDS = ["GET", "PUT", "HEAD", "POST", "DELETE", "OPTIONS", "PATCH"]
 
-    # STYLES = {
-    #     "ip": "green",
-    #     "remote_log_name": "magenta",
-    #     "userid": "bold",
-    #     "date": "dim",
-    #     "timezone": "dim"
-    #     "request_method": "bold"
-    #     "path": "magenta",
-    #     "request_version": "magenta",
-    #     "status": "bold cyan",
-    #     "length": "bold green",
-    #     "referrer": "italic blue",
-
-    # }
     highlighter = LogHighlighter()
 
     def parse(self, line: str) -> ParseResult | None:
@@ -60,10 +39,6 @@ class RegexLogFormat(LogFormat):
             return None
         groups = match.groupdict()
         _, timestamp = timestamps.parse(groups["date"].strip("[]"))
-
-        # text = Text(line)
-        # for group_no, match_string in enumerate(match.groups()):
-        #     start, end = match.span(group_no)
 
         text = self.highlighter(line)
 
