@@ -143,27 +143,41 @@ class LogFile:
         while (position := rfind(b"\n", 0, position)) != -1:
             append(position)
             if get_length() % 1000 == 0 and monotonic() - break_time > batch_time:
+                break_time = monotonic()
                 yield (position, batch)
                 batch = []
+                append = batch.append
         yield (0, batch)
         log_mmap.close()
 
     def scan_timestamps(
-        self,
-    ) -> Iterable[tuple[int, int, float]]:
+        self, batch_time: float = 0.25
+    ) -> Iterable[list[tuple[int, int, float]]]:
         fileno = self.fileno
         size = self.size
         if not size:
             return
         log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
 
+        monotonic = time.monotonic
+        scan_time = monotonic()
         scan = self.timestamp_scanner.scan
         line_no = 0
         timestamp = self.get_create_time() or datetime.utcnow()
         position = 0
+        results: list[tuple[int, int, float]] = []
+        append = results.append
+        get_length = results.__len__
         while line_bytes := log_mmap.readline():
             line = line_bytes.decode("utf-8", errors="replace")
             timestamp = scan(line) or timestamp
-            yield (line_no, position, timestamp.timestamp())
+            append((line_no, position, timestamp.timestamp()))
             position += len(line_bytes)
             line_no += 1
+            if get_length() % 1000 == 0 and monotonic() - scan_time > batch_time:
+                scan_time = monotonic()
+                yield results
+                results = []
+                append = results.append
+        if results:
+            yield results

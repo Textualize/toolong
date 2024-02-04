@@ -248,22 +248,25 @@ class ScanProgressBar(Static):
     }
     """
 
-    message = reactive[str]
+    message = reactive(str)
 
-    def update_progress(self, progress: int, total: int, line_count: int) -> None:
-        percentage = int((progress / total) * 100.0)
-        line_count_thousands = line_count // 1000
-        self.update(
-            f"Scanning [b]{percentage}%[/] ({line_count_thousands:,}K lines)- ESCAPE to cancel"
-        )
-        self.add_class("-has-content")
+    def watch_message(self, message: str) -> None:
+        self.update(message)
+        self.set_class(bool(message), "-has-content")
+
+    # def update_progress(self, progress: int, total: int, line_count: int) -> None:
+    #     percentage = int((progress / total) * 100.0)
+    #     line_count_thousands = line_count // 1000
+    #     self.update(
+    #         f"Scanning [b]{percentage}%[/] ({line_count_thousands:,}K lines)- ESCAPE to cancel"
+    #     )
+    #     self.add_class("-has-content")
 
 
 @dataclass
 class ScanProgress(Message):
-    total: int
-    progress: int
-    scan_start: int
+    message: str
+    scan_start: int | None = None
 
 
 @dataclass
@@ -278,7 +281,7 @@ class FooterKey(Label):
     FooterKey {
         color: $success;
         padding: 0 1 0 0;
-        text-style: bold;
+        
         &:hover {
             text-style: bold underline;            
             # color: $success;
@@ -372,7 +375,7 @@ class LogFooter(Widget):
         if self.timestamp is not None:
             meta.append(f"{self.timestamp:%x %X}")
         if self.line_no is not None:
-            meta.append(f"Line {self.line_no+1:,}")
+            meta.append(f"{self.line_no + 1}")
 
         meta_line = " • ".join(meta)
         self.query_one(".meta", Label).update(Text(meta_line))
@@ -562,13 +565,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         worker = get_current_worker()
 
         if len(self.log_files) > 1:
-            self.notify(
-                f"Merging {len(self.log_files)} files",
-                title="Please wait",
-                severity="warning",
-            )
             self.merge_log_files()
-            self.post_message(ScanComplete(0, 0))
             return
 
         try:
@@ -595,11 +592,17 @@ class LogLines(ScrollView, inherit_bindings=False):
             return
 
         position = size
+        line_count = 0
 
         for position, breaks in self.log_file.scan_line_breaks():
-            self.post_message(ScanProgress(size, size - position, position))
+            percentage = int((position / size) * 100.0)
+            line_count_thousands = line_count // 1000
+            message = f"Scanning [b]{percentage}%[/] ({line_count_thousands:,}K lines)- ESCAPE to cancel"
+
+            self.post_message(ScanProgress(message, position))
             if breaks:
                 self.post_message(NewBreaks(self.log_file, breaks))
+                line_count += len(breaks)
             if worker.is_cancelled:
                 break
         else:
@@ -614,14 +617,39 @@ class LogLines(ScrollView, inherit_bindings=False):
 
         for log_file in self.log_files:
             log_file.open(worker.cancelled_event)
-            line_breaks = self._line_breaks.setdefault(log_file, [])
-            append = line_breaks.append
-            for line_no, break_position, timestamp in log_file.scan_timestamps():
-                append_meta((timestamp, line_no, log_file))
-                append(break_position)
+            self._line_breaks[log_file] = []
+
+        self.loading = False
+
+        total_size = sum(log_file.size for log_file in self.log_files)
+        position = 0
+
+        for file_no, log_file in enumerate(self.log_files, 1):
+            append = self._line_breaks[log_file].append
+            for timestamps in log_file.scan_timestamps():
+                break_position = 0
+                for line_no, break_position, timestamp in timestamps:
+                    append_meta((timestamp, line_no, log_file))
+                    append(break_position)
+
+                percentage = int(((position + break_position) / total_size) * 100)
+                self.post_message(
+                    ScanProgress(
+                        f"Merging [b]{percentage}%[/b] ({file_no} of {len(self.log_files)}) files  - ESCAPE to cancel"
+                    )
+                )
+                if worker.is_cancelled:
+                    self.post_message(
+                        ScanComplete(total_size, position + break_position)
+                    )
+                    return
+
+            position += log_file.size
 
         merge_lines.sort()
         self._merge_lines = merge_lines
+
+        self.post_message(ScanComplete(total_size, total_size))
 
     @classmethod
     def _scan_file(
@@ -1105,7 +1133,8 @@ class LogLines(ScrollView, inherit_bindings=False):
 
     @on(ScanProgress)
     def on_scan_progress(self, event: ScanProgress):
-        self._scan_start = event.scan_start
+        if event.scan_start is not None:
+            self._scan_start = event.scan_start
 
     @on(LineRead)
     def on_line_read(self, event: LineRead) -> None:
@@ -1267,9 +1296,7 @@ class LogView(Horizontal):
     @on(ScanProgress)
     def on_scan_progress(self, event: ScanProgress):
         event.stop()
-        self.query_one(ScanProgressBar).update_progress(
-            event.progress, event.total, self.query_one(LogLines).line_count
-        )
+        self.query_one(ScanProgressBar).message = event.message
 
     @on(ScanComplete)
     async def on_scan_complete(self, event: ScanComplete) -> None:
