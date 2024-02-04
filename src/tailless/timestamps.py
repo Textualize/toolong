@@ -125,7 +125,10 @@ class TimestampScanner:
         for index, timestamp_format in enumerate(self._timestamp_formats):
             regex, parse_callable = timestamp_format
             if (match := re.search(regex, line)) is not None:
-                if (timestamp := parse_callable(match.group(0))) is None:
+                try:
+                    if (timestamp := parse_callable(match.group(0))) is None:
+                        continue
+                except Exception:
                     continue
                 if index:
                     # Put matched format at the top so that

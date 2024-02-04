@@ -1,7 +1,12 @@
+from __future__ import annotations
+
+from datetime import datetime
 import os
+import mmap
 import mimetypes
+import time
 from pathlib import Path
-from typing import IO
+from typing import IO, Iterable
 from threading import Event
 
 
@@ -17,6 +22,7 @@ class LogFile:
 
     def __init__(self, path: str) -> None:
         self.path = Path(path)
+        self.name = self.path.name
         self.file: IO[bytes] | None = None
         self.size = 0
         self.can_tail = False
@@ -34,6 +40,18 @@ class LogFile:
     def is_compressed(self) -> bool:
         _, encoding = mimetypes.guess_type(self.path.name, strict=False)
         return encoding in ("gzip", "bzip2")
+
+    def get_create_time(self) -> datetime | None:
+        try:
+            stat_result = self.path.stat()
+        except Exception:
+            return None
+        try:
+            create_time_seconds = stat_result.st_birthtime
+        except AttributeError:
+            create_time_seconds = stat_result.st_mtime
+        timestamp = datetime.fromtimestamp(create_time_seconds)
+        return timestamp
 
     def open(self, exit_event: Event) -> bool:
 
@@ -105,3 +123,47 @@ class LogFile:
     def read(self, size: int) -> bytes:
         assert self.file is not None, "Must be open to read"
         return self.file.read(size)
+
+    def scan_line_breaks(
+        self, batch_time: float = 0.25
+    ) -> Iterable[tuple[int, list[int]]]:
+        fileno = self.fileno
+        size = self.size
+        if not size:
+            return
+        log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
+        rfind = log_mmap.rfind
+        position = size
+        batch: list[int] = []
+        append = batch.append
+        get_length = batch.__len__
+        monotonic = time.monotonic
+        break_time = monotonic()
+
+        while (position := rfind(b"\n", 0, position)) != -1:
+            append(position)
+            if get_length() % 1000 == 0 and monotonic() - break_time > batch_time:
+                yield (position, batch)
+                batch = []
+        yield (0, batch)
+        log_mmap.close()
+
+    def scan_timestamps(
+        self,
+    ) -> Iterable[tuple[int, int, float]]:
+        fileno = self.fileno
+        size = self.size
+        if not size:
+            return
+        log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
+
+        scan = self.timestamp_scanner.scan
+        line_no = 0
+        timestamp = self.get_create_time() or datetime.utcnow()
+        position = 0
+        while line_bytes := log_mmap.readline():
+            line = line_bytes.decode("utf-8", errors="replace")
+            timestamp = scan(line) or timestamp
+            yield (line_no, position, timestamp.timestamp())
+            position += len(line_bytes)
+            line_no += 1

@@ -52,6 +52,22 @@ SPLIT_REGEX = r"[\s/\[\]]"
 MAX_LINE_LENGTH = 1000
 
 
+COLORS = [
+    "#881177",
+    "#aa3355",
+    "#cc6666",
+    "#ee9944",
+    "#eedd00",
+    "#99dd55",
+    "#44dd88",
+    "#22ccbb",
+    "#00bbcc",
+    "#0099cc",
+    "#3366bb",
+    "#663399",
+]
+
+
 @dataclass
 class LineRead(Message):
     """A line has been read from the file."""
@@ -295,22 +311,14 @@ class LogFooter(Widget):
             width: 1fr;
             height: 1;            
         }
-        .tail {            
-            color: $warning;
-            padding: 0 1 0 0;                        
-        }
-        .line-no {
+        
+        .meta {
             width: auto;
             height: 1;
             color: $warning;
             padding: 0 1 0 0;
         }
-        .timestamp {
-            width: auto;
-            height: 1;
-            color: $warning;
-            padding: 0 1;
-        }
+        
         .tail {
             padding: 0 1;
             background: $success 15%;
@@ -324,6 +332,7 @@ class LogFooter(Widget):
     }
     """
     line_no: reactive[int | None] = reactive(None)
+    filename: reactive[str] = reactive("")
     timestamp: reactive[datetime | None] = reactive(None)
     tail: reactive[bool] = reactive(False)
 
@@ -331,8 +340,7 @@ class LogFooter(Widget):
         with Horizontal(classes="key-container"):
             pass
         yield Label("TAIL", classes="tail")
-        yield Label("", classes="timestamp")
-        yield Label("", classes="line-no")
+        yield Label("", classes="meta")
 
     async def mount_keys(self) -> None:
         key_container = self.query_one(".key-container")
@@ -357,19 +365,29 @@ class LogFooter(Widget):
         self.watch(self.screen, "stack_updates", self.mount_keys)
         self.call_after_refresh(self.mount_keys)
 
+    def update_meta(self) -> None:
+        meta: list[str] = []
+        if self.filename is not None:
+            meta.append(self.filename)
+        if self.timestamp is not None:
+            meta.append(f"{self.timestamp:%x %X}")
+        if self.line_no is not None:
+            meta.append(f"Line {self.line_no+1:,}")
+
+        meta_line = " • ".join(meta)
+        self.query_one(".meta", Label).update(Text(meta_line))
+
     def watch_tail(self, tail: bool) -> None:
         self.query(".tail").set_class(tail, "on")
 
+    def watch_filename(self, filename: str) -> None:
+        self.update_meta()
+
     def watch_line_no(self, line_no: int | None) -> None:
-        self.query_one(".line-no", Label).update(
-            "" if line_no is None else f"• Line {line_no+1:,}"
-        )
+        self.update_meta()
 
     def watch_timestamp(self, timestamp: datetime | None) -> None:
-        if timestamp is None:
-            self.query_one(".timestamp", Label).update("")
-        else:
-            self.query_one(".timestamp", Label).update(f"{timestamp:%x %X}")
+        self.update_meta()
 
 
 @dataclass
@@ -468,6 +486,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         self._scan_start = 0
         self._gutter_width = 0
         self._line_reader = LineReader(self)
+        self._merge_lines: list[tuple[float, int, LogFile]] | None = None
 
     @property
     def file_path(self) -> str:
@@ -479,6 +498,8 @@ class LogLines(ScrollView, inherit_bindings=False):
 
     @property
     def line_count(self) -> int:
+        if self._merge_lines is not None:
+            return len(self._merge_lines)
         return self._line_count
 
     @property
@@ -540,6 +561,13 @@ class LogLines(ScrollView, inherit_bindings=False):
     def run_scan(self) -> None:
         worker = get_current_worker()
 
+        if len(self.log_files) > 1:
+            filenames = " + ".join(log_file.name for log_file in self.log_files)
+            self.notify(f"{filenames}", title="Merging", severity="warning")
+            self.merge_log_files()
+            self.post_message(ScanComplete(0, 0))
+            return
+
         try:
             if not self.log_file.open(worker.cancelled_event):
                 self.loading = False
@@ -565,7 +593,7 @@ class LogLines(ScrollView, inherit_bindings=False):
 
         position = size
 
-        for position, breaks in self._scan_file(self.log_file.fileno, size):
+        for position, breaks in self.log_file.scan_line_breaks():
             self.post_message(ScanProgress(size, size - position, position))
             if breaks:
                 self.post_message(NewBreaks(self.log_file, breaks))
@@ -575,6 +603,22 @@ class LogLines(ScrollView, inherit_bindings=False):
             self.post_message(ScanComplete(size, position))
             return
         self.post_message(ScanComplete(size, 0))
+
+    def merge_log_files(self) -> None:
+        worker = get_current_worker()
+        merge_lines: list[tuple[float, int, LogFile]] = []
+        append_meta = merge_lines.append
+
+        for log_file in self.log_files:
+            log_file.open(worker.cancelled_event)
+            line_breaks = self._line_breaks.setdefault(log_file, [])
+            append = line_breaks.append
+            for line_no, break_position, timestamp in log_file.scan_timestamps():
+                append_meta((timestamp, line_no, log_file))
+                append(break_position)
+
+        merge_lines.sort()
+        self._merge_lines = merge_lines
 
     @classmethod
     def _scan_file(
@@ -601,6 +645,9 @@ class LogLines(ScrollView, inherit_bindings=False):
         yield (0, batch)
 
     def get_log_file_from_index(self, index: int) -> tuple[LogFile, int]:
+        if self._merge_lines is not None:
+            _, index, log_file = self._merge_lines[index]
+            return log_file, index
         return self.log_files[0], index
 
     def index_to_span(self, index: int) -> tuple[LogFile, int, int]:
@@ -947,6 +994,8 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.post_message(TailFile(False))
 
     def on_click(self, event: events.Click) -> None:
+        if self.loading:
+            return
         new_pointer_line = event.y + self.scroll_offset.y - self.gutter.top
         if new_pointer_line == self.pointer_line:
             self.post_message(FilterDialog.SelectLine())
@@ -1199,8 +1248,10 @@ class LogView(Horizontal):
             if event.pointer_line is None
             else event.pointer_line
         )
+        log_file, _, _ = log_lines.index_to_span(pointer_line)
         log_footer = self.query_one(LogFooter)
         log_footer.line_no = pointer_line
+        log_footer.filename = log_file.name
 
         _, _, timestamp = log_lines.get_text(pointer_line, block=True)
         log_footer.timestamp = timestamp
@@ -1218,12 +1269,13 @@ class LogView(Horizontal):
         )
 
     @on(ScanComplete)
-    def on_scan_complete(self, event: ScanComplete) -> None:
+    async def on_scan_complete(self, event: ScanComplete) -> None:
         self.query_one(ScanProgressBar).remove()
         log_lines = self.query_one(LogLines)
         log_lines.loading = False
         self.query_one("LogLines").remove_class("-scanning")
         self.post_message(PointerMoved(log_lines.pointer_line))
+        await self.query_one(LogFooter).mount_keys()
 
         # log_lines.start_tail()
 
