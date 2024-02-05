@@ -17,8 +17,7 @@ class LineDisplay(Widget):
         padding: 0 1;
         margin: 1 0;
         width: auto;
-        height: auto;
-        scrollbar-gutter: stable;
+        height: auto;        
         Label {
             width: 1fr;
         }  
@@ -49,7 +48,7 @@ class LinePanel(ScrollableContainer):
         background: $panel;        
         overflow-y: auto;
         border: blank transparent;                
-
+        scrollbar-gutter: stable;
         &:focus {
             border: heavy $accent;
         }

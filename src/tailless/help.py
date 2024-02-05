@@ -43,7 +43,7 @@ Repository: [https://github.com/Textualize/tailless](https://github.com/Textuali
 Open files from the command line.
 
 ```bash
-tl foo.log bar.log
+$ tl foo.log bar.log
 ```
 
 If you specify more than one file, they will be displayed within tabs.
@@ -53,7 +53,7 @@ If you specify more than one file, they will be displayed within tabs.
 If a file is compressed with BZip or GZip, it will be uncompressed automatically:
 
 ```bash
-tl foo.log.2.gz
+$ tl foo.log.2.gz
 ```
 
 #### Merging files
@@ -62,8 +62,18 @@ Multiple files will open in tabs.
 If you add the `--merge` switch, TooLong will merge all the log files based on their timestamps:
 
 ```bash
-tl mysite.log* --merge
+$ tl mysite.log* --merge
 ```
+
+### Pointer mode
+
+Pointer mode lets you navigate by line.
+To enter pointer mode, press `enter` or click a line. 
+When it pointer mode, the navigation keys will move this pointer rather than scroll the log file.
+
+Press `enter` again or click the line again to expand the line in to a new panel.
+
+Press `escape` to hide the line panel if it is visible, or to leave pointer mode if the line panel is not visible.
 
 """
 

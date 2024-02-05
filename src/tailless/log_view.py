@@ -320,6 +320,7 @@ class LogFooter(Widget):
         
         .tail {
             padding: 0 1;
+            margin: 0 1;
             background: $success 15%;
             color: $success;
             text-style: bold;
