@@ -443,7 +443,7 @@ class LogLines(ScrollView, inherit_bindings=False):
             tint: $background 30%;
         }
         .loglines--line-numbers {
-            color: $warning 80%;            
+            color: $warning 70%;            
         }
         .loglines--line-numbers-active {
             color: $warning;            

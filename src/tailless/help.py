@@ -1,6 +1,5 @@
 import webbrowser
 
-from rich.style import Style
 from rich.text import Text
 
 from textual import on
@@ -69,9 +68,9 @@ $ tl mysite.log* --merge
 
 Pointer mode lets you navigate by line.
 To enter pointer mode, press `enter` or click a line. 
-When it pointer mode, the navigation keys will move this pointer rather than scroll the log file.
+When in pointer mode, the navigation keys will move this pointer rather than scroll the log file.
 
-Press `enter` again or click the line again to expand the line in to a new panel.
+Press `enter` again or click the line a second time to expand the line in to a new panel.
 
 Press `escape` to hide the line panel if it is visible, or to leave pointer mode if the line panel is not visible.
 
@@ -107,20 +106,13 @@ COLORS = [
 
 
 def get_title() -> Text:
-    iter_colors = iter(COLORS)
-
-    return Text.assemble(
-        *(
-            (
-                line,
-                Style(color=next(iter_colors)),
-            )
-            for line in TITLE.splitlines(keepends=True)
-        )
-    )
+    """Get the title, with a rainbow effect."""
+    lines = TITLE.splitlines(keepends=True)
+    return Text.assemble(*zip(lines, COLORS))
 
 
 class HelpScreen(ModalScreen):
+    """Simple Help screen with Markdown and a few links."""
 
     CSS = """
     HelpScreen VerticalScroll {
@@ -132,14 +124,15 @@ class HelpScreen(ModalScreen):
             width: auto;
         }
         scrollbar-gutter: stable;
+        Markdown {
+            margin:0 2;
+        }        
         Markdown .code_inline {
             background: $primary-darken-1;
             text-style: bold;
         }
     }    
     """
-
-    BORDER_TITLE = "Help"
 
     BINDINGS = [
         ("escape", "dismiss"),
@@ -149,7 +142,6 @@ class HelpScreen(ModalScreen):
     ]
 
     def compose(self) -> ComposeResult:
-
         yield Footer()
         with VerticalScroll() as vertical_scroll:
             with Center():
@@ -160,9 +152,8 @@ class HelpScreen(ModalScreen):
 
     @on(Markdown.LinkClicked)
     def on_markdown_link_clicked(self, event: Markdown.LinkClicked) -> None:
-
-        webbrowser.open(event.href)
+        self.action_go(event.href)
 
     def action_go(self, href: str) -> None:
-        webbrowser.open(href)
         self.notify(f"Opening {href}", title="Link")
+        webbrowser.open(href)

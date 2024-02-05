@@ -29,7 +29,16 @@ class LogFormat:
 class RegexLogFormat(LogFormat):
     REGEX = re.compile(".*?")
     TIMESTAMP = "%d/%b/%Y:%H:%M:%S %z"
-    HIGHLIGHT_WORDS = ["GET", "PUT", "HEAD", "POST", "DELETE", "OPTIONS", "PATCH"]
+    HIGHLIGHT_WORDS = [
+        "GET",
+        "POST",
+        "PUT",
+        "HEAD",
+        "POST",
+        "DELETE",
+        "OPTIONS",
+        "PATCH",
+    ]
 
     highlighter = LogHighlighter()
 
@@ -41,9 +50,11 @@ class RegexLogFormat(LogFormat):
         _, timestamp = timestamps.parse(groups["date"].strip("[]"))
 
         text = self.highlighter(line)
-
+        if status := groups.get("status", None):
+            text.highlight_words(
+                [status], "bold red" if status.startswith("4") else "magenta"
+            )
         text.highlight_words(self.HIGHLIGHT_WORDS, "bold yellow")
-        text.highlight_words(["POST"], "bold red")
 
         return timestamp, line, text
 
