@@ -72,7 +72,7 @@ class UI(App):
 
     async def on_mount(self) -> None:
         await self.push_screen(LogScreen())
-        self.screen.query("LogLines").first().focus()
+        self.screen.query("LogLines").focus()
         self.watcher.start()
 
     def on_unmount(self) -> None:

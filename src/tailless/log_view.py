@@ -28,7 +28,7 @@ from textual.scroll_view import ScrollView
 from textual import scrollbar
 from textual.cache import LRUCache
 from textual.widget import Widget
-from textual.widgets import Label, Static
+from textual.widgets import Label
 from textual import work
 from textual.worker import Worker, get_current_worker
 from textual.widget import Widget
@@ -40,8 +40,6 @@ from textual.strip import Strip
 
 from textual.suggester import Suggester
 
-from .help import HelpScreen
-from .highlighter import LogHighlighter
 from .filter_dialog import FilterDialog
 from .line_panel import LinePanel
 from .log_file import LogFile
@@ -487,7 +485,6 @@ class LogLines(ScrollView, inherit_bindings=False):
         self._text_cache: LRUCache[
             tuple[LogFile, int, int, bool], tuple[str, Text, datetime | None]
         ] = LRUCache(1000)
-        self.highlighter = LogHighlighter()
         self.initial_scan_worker: Worker | None = None
         self._line_count = 0
         self._scanned_size = 0
@@ -754,10 +751,9 @@ class LogLines(ScrollView, inherit_bindings=False):
             if new_line is None:
                 return "", Text(""), None
             line = new_line
-            if abbreviate and len(line) > MAX_LINE_LENGTH:
-                line = line[:MAX_LINE_LENGTH] + "…"
-
             timestamp, line, text = log_format.parse(line)
+            if abbreviate and len(text) > MAX_LINE_LENGTH:
+                text = text[:MAX_LINE_LENGTH] + "…"
             self._text_cache[cache_key] = (line, text, timestamp)
         return line, text.copy(), timestamp
 

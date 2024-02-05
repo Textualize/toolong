@@ -1,12 +1,14 @@
 from datetime import datetime
+import json
 
+from rich.json import JSON
 from rich.text import Text
 
 from textual.app import ComposeResult
-from textual.containers import VerticalScroll
+from textual.containers import ScrollableContainer
 
 from textual.widget import Widget
-from textual.widgets import Label
+from textual.widgets import Label, Static
 
 
 class LineDisplay(Widget):
@@ -14,10 +16,15 @@ class LineDisplay(Widget):
     LineDisplay {        
         padding: 0 1;
         margin: 1 0;
+        width: auto;
         height: auto;
+        scrollbar-gutter: stable;
         Label {
             width: 1fr;
-        }        
+        }  
+        .json {
+            width: auto;        
+        }      
     }
     """
 
@@ -28,10 +35,15 @@ class LineDisplay(Widget):
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        yield Label(self.text)
+        try:
+            data = json.loads(self.line)
+        except Exception:
+            yield Label(self.text)
+        else:
+            yield Static(JSON(self.line), expand=True, classes="json")
 
 
-class LinePanel(VerticalScroll):
+class LinePanel(ScrollableContainer):
     DEFAULT_CSS = """
     LinePanel {
         background: $panel;        

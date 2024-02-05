@@ -1,9 +1,9 @@
 from datetime import datetime
+import json
 import re
 from typing import TypeAlias
 
-from dateutil.parser import parse as parse_timestamp
-from rich.highlighter import RegexHighlighter
+from rich.highlighter import RegexHighlighter, JSONHighlighter
 from rich.text import Text
 
 from .highlighter import LogHighlighter
@@ -70,7 +70,25 @@ class DefaultLogFormat(LogFormat):
         return None, line, text
 
 
+class JSONLogFormat(LogFormat):
+
+    highlighter = JSONHighlighter()
+
+    def parse(self, line: str) -> ParseResult | None:
+        line = line.strip()
+        if not line:
+            return None
+        try:
+            json.loads(line)
+        except Exception:
+            return None
+        _, timestamp = timestamps.parse(line)
+        text = self.highlighter(line)
+        return timestamp, line, text
+
+
 FORMATS = [
+    JSONLogFormat(),
     CommonLogFormat(),
     CombinedLogFormat(),
     DefaultLogFormat(),
