@@ -40,6 +40,7 @@ from textual.strip import Strip
 
 from textual.suggester import Suggester
 
+from .help import HelpScreen
 from .highlighter import LogHighlighter
 from .filter_dialog import FilterDialog
 from .line_panel import LinePanel
@@ -51,22 +52,6 @@ SPLIT_REGEX = r"[\s/\[\]]"
 
 
 MAX_LINE_LENGTH = 1000
-
-
-COLORS = [
-    "#881177",
-    "#aa3355",
-    "#cc6666",
-    "#ee9944",
-    "#eedd00",
-    "#99dd55",
-    "#44dd88",
-    "#22ccbb",
-    "#00bbcc",
-    "#0099cc",
-    "#3366bb",
-    "#663399",
-]
 
 
 @dataclass
@@ -426,6 +411,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         Binding("pagedown", "page_down", "Page Down", show=False),
         Binding("enter", "select", "Select line", show=False),
         Binding("escape", "dismiss", "Dismiss", show=False, priority=True),
+        Binding("f1", "help", "Help"),
         Binding("m", "navigate(+1, 'm')"),
         Binding("M", "navigate(-1, 'm')"),
         Binding("h", "navigate(+1, 'h')"),
@@ -614,9 +600,8 @@ class LogLines(ScrollView, inherit_bindings=False):
         line_count = 0
 
         for position, breaks in self.log_file.scan_line_breaks():
-            percentage = int((position / size) * 100.0)
             line_count_thousands = line_count // 1000
-            message = f"Scanning [b]{percentage}%[/] ({line_count_thousands:,}K lines)- ESCAPE to cancel"
+            message = f"Scanned ({line_count_thousands:,}K lines)- ESCAPE to cancel"
 
             self.post_message(ScanProgress(message, position / size, position))
             if breaks:
@@ -643,13 +628,14 @@ class LogLines(ScrollView, inherit_bindings=False):
         total_size = sum(log_file.size for log_file in self.log_files)
         position = 0
 
-        for file_no, log_file in enumerate(self.log_files, 1):
+        for log_file in self.log_files:
             append = self._line_breaks[log_file].append
             for timestamps in log_file.scan_timestamps():
                 break_position = 0
                 for line_no, break_position, timestamp in timestamps:
-                    append_meta((timestamp, line_no, log_file))
-                    append(break_position)
+                    if break_position:
+                        append_meta((timestamp, line_no, log_file))
+                        append(break_position)
 
                 self.post_message(
                     ScanProgress(
@@ -971,11 +957,11 @@ class LogLines(ScrollView, inherit_bindings=False):
             ):
                 self.scroll_pointer_to_center()
 
-    def scroll_pointer_to_center(self):
+    def scroll_pointer_to_center(self, animate: bool = True):
         y_offset = self.pointer_line - self.scrollable_content_region.height // 2
         self.scroll_to(
             y=y_offset,
-            animate=abs(y_offset - self.scroll_offset.y) > 1,
+            animate=animate and abs(y_offset - self.scroll_offset.y) > 1,
             duration=0.2,
         )
 
@@ -1078,13 +1064,21 @@ class LogLines(ScrollView, inherit_bindings=False):
         else:
             self.post_message(DismissOverlay())
 
+    # @work(thread=True)
     def action_navigate(self, steps: int, unit: Literal["m", "h", "d"]) -> None:
-        line_no = (
+
+        initial_line_no = line_no = (
             self.scroll_offset.y if self.pointer_line is None else self.pointer_line
         )
-        timestamp = self.get_timestamp(line_no)
-        if timestamp is None:
-            return
+
+        count = 0
+        # If the current line doesn't have a timestamp, try to find the next one
+        while (timestamp := self.get_timestamp(line_no)) is None:
+            line_no += 1
+            count += 1
+            if count >= self.line_count or count > 10:
+                self.app.bell()
+                return
 
         direction = +1 if steps > 0 else -1
         line_no += direction
@@ -1111,7 +1105,12 @@ class LogLines(ScrollView, inherit_bindings=False):
                 line_no -= 1
 
         self.pointer_line = line_no
-        self.scroll_pointer_to_center()
+        self.scroll_pointer_to_center(animate=abs(initial_line_no - line_no) < 100)
+
+    def action_help(self) -> None:
+        from .help import HelpScreen
+
+        self.app.push_screen(HelpScreen())
 
     def watch_tail(self, tail: bool) -> None:
         self.set_class(tail, "-tail")
@@ -1349,7 +1348,7 @@ class LogView(Horizontal):
         if len(log_lines.log_files) > 1:
             log_footer.filename = log_file.name
 
-        _, _, timestamp = log_lines.get_text(pointer_line, block=True)
+        timestamp = log_lines.get_timestamp(pointer_line)
         log_footer.timestamp = timestamp
 
     @on(PendingLines)

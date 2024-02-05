@@ -170,11 +170,16 @@ class LogFile:
         get_length = results.__len__
         while line_bytes := log_mmap.readline():
             line = line_bytes.decode("utf-8", errors="replace")
-            timestamp = scan(line) or timestamp
-            append((line_no, position, timestamp.timestamp()))
+            if line.strip():
+                timestamp = scan(line) or timestamp
+                append((line_no, position, timestamp.timestamp()))
             position += len(line_bytes)
             line_no += 1
-            if get_length() % 1000 == 0 and monotonic() - scan_time > batch_time:
+            if (
+                results
+                and get_length() % 1000 == 0
+                and monotonic() - scan_time > batch_time
+            ):
                 scan_time = monotonic()
                 yield results
                 results = []
