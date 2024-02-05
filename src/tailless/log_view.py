@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 import mmap
 import re
 import time
 from queue import Empty, Queue
 from threading import Thread, Event
-from typing import Iterable, Mapping
+from typing import Iterable, Literal, Mapping
 
 import rich.repr
 from rich.text import Text
@@ -18,7 +18,7 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.cache import LRUCache
-from textual.containers import Horizontal
+from textual.containers import Horizontal, Vertical, Center
 from textual import events
 from textual.geometry import Size, clamp, Region
 from textual.message import Message
@@ -32,6 +32,7 @@ from textual.widgets import Label, Static
 from textual import work
 from textual.worker import Worker, get_current_worker
 from textual.widget import Widget
+from textual.widgets import ProgressBar
 
 
 from textual.strip import Strip
@@ -228,11 +229,12 @@ class TailFile(Message):
     tail: bool = True
 
 
-class ScanProgressBar(Static):
+class ScanProgressBar(Vertical):
     SCOPED_CSS = False
     DEFAULT_CSS = """
     ScanProgressBar {
         width: 100%;
+        height: auto;
         margin: 2 4;
         dock: top;                    
         padding: 1 2;
@@ -240,7 +242,12 @@ class ScanProgressBar(Static):
         display: block;
         text-align: center;
         display: none;
-     
+        align: center top;
+
+        & > * {
+            # margin: 1 0 ;
+        }
+        
     }
 
     LogLines:focus ScanProgressBar.-has-content {
@@ -248,24 +255,26 @@ class ScanProgressBar(Static):
     }
     """
 
-    message = reactive(str)
+    message = reactive("")
+    complete = reactive(0.0)
 
     def watch_message(self, message: str) -> None:
-        self.update(message)
+        self.query_one(".message", Label).update(message)
         self.set_class(bool(message), "-has-content")
 
-    # def update_progress(self, progress: int, total: int, line_count: int) -> None:
-    #     percentage = int((progress / total) * 100.0)
-    #     line_count_thousands = line_count // 1000
-    #     self.update(
-    #         f"Scanning [b]{percentage}%[/] ({line_count_thousands:,}K lines)- ESCAPE to cancel"
-    #     )
-    #     self.add_class("-has-content")
+    def compose(self) -> ComposeResult:
+        with Center():
+            yield Label(classes="message")
+        with Center():
+            yield ProgressBar(
+                total=1.0, show_eta=False, show_percentage=False
+            ).data_bind(progress=ScanProgressBar.complete)
 
 
 @dataclass
 class ScanProgress(Message):
     message: str
+    complete: float
     scan_start: int | None = None
 
 
@@ -315,6 +324,10 @@ class LogFooter(Widget):
             height: 1;            
         }
         
+        .key {
+            color: $warning;
+        }
+
         .meta {
             width: auto;
             height: 1;
@@ -347,7 +360,7 @@ class LogFooter(Widget):
 
     async def mount_keys(self) -> None:
         key_container = self.query_one(".key-container")
-        await key_container.query(".key").remove()
+        await key_container.query("*").remove()
         bindings = [
             binding
             for (_, binding) in self.app.namespace_bindings.values()
@@ -370,7 +383,7 @@ class LogFooter(Widget):
 
     def update_meta(self) -> None:
         meta: list[str] = []
-        if self.filename is not None:
+        if self.filename:
             meta.append(self.filename)
         if self.timestamp is not None:
             meta.append(f"{self.timestamp:%x %X}")
@@ -413,6 +426,12 @@ class LogLines(ScrollView, inherit_bindings=False):
         Binding("pagedown", "page_down", "Page Down", show=False),
         Binding("enter", "select", "Select line", show=False),
         Binding("escape", "dismiss", "Dismiss", show=False, priority=True),
+        Binding("m", "navigate(+1, 'm')"),
+        Binding("M", "navigate(-1, 'm')"),
+        Binding("h", "navigate(+1, 'h')"),
+        Binding("H", "navigate(-1, 'h')"),
+        Binding("d", "navigate(+1, 'd')"),
+        Binding("D", "navigate(-1, 'd')"),
     ]
 
     DEFAULT_CSS = """
@@ -439,10 +458,10 @@ class LogLines(ScrollView, inherit_bindings=False):
             tint: $background 30%;
         }
         .loglines--line-numbers {
-            color: $success 50%;            
+            color: $warning 80%;            
         }
         .loglines--line-numbers-active {
-            color: $success;            
+            color: $warning;            
             text-style: bold;
         }       
     }
@@ -599,7 +618,7 @@ class LogLines(ScrollView, inherit_bindings=False):
             line_count_thousands = line_count // 1000
             message = f"Scanning [b]{percentage}%[/] ({line_count_thousands:,}K lines)- ESCAPE to cancel"
 
-            self.post_message(ScanProgress(message, position))
+            self.post_message(ScanProgress(message, position / size, position))
             if breaks:
                 self.post_message(NewBreaks(self.log_file, breaks))
                 line_count += len(breaks)
@@ -632,10 +651,10 @@ class LogLines(ScrollView, inherit_bindings=False):
                     append_meta((timestamp, line_no, log_file))
                     append(break_position)
 
-                percentage = int(((position + break_position) / total_size) * 100)
                 self.post_message(
                     ScanProgress(
-                        f"Merging [b]{percentage}%[/b] ({file_no} of {len(self.log_files)}) files  - ESCAPE to cancel"
+                        f"Merging {log_file.name} - ESCAPE to cancel",
+                        (position + break_position) / total_size,
                     )
                 )
                 if worker.is_cancelled:
@@ -755,6 +774,20 @@ class LogLines(ScrollView, inherit_bindings=False):
             timestamp, line, text = log_format.parse(line)
             self._text_cache[cache_key] = (line, text, timestamp)
         return line, text.copy(), timestamp
+
+    def get_timestamp(self, line_index: int) -> datetime | None:
+        """Get a timestamp for the given line, or `None` if no timestamp detected.
+
+        Args:
+            line_index: Index of line.
+
+        Returns:
+            A datetime or `None`.
+        """
+        log_file, start, end = self.index_to_span(line_index)
+        line = log_file.get_line(start, end)
+        timestamp = log_file.timestamp_scanner.scan(line)
+        return timestamp
 
     def on_unmount(self) -> None:
         self._line_reader.stop()
@@ -965,16 +998,13 @@ class LogLines(ScrollView, inherit_bindings=False):
     def watch_pointer_line(
         self, old_pointer_line: int | None, pointer_line: int | None
     ) -> None:
-        # if old_pointer_line is not None and pointer_line is not None:
-        #     self.scroll_pointer_to_center()
+
         if old_pointer_line is not None:
             self.refresh_line(old_pointer_line)
         if pointer_line is not None:
             self.refresh_line(pointer_line)
         self.show_gutter = pointer_line is not None
         self.post_message(PointerMoved(pointer_line))
-        # if pointer_line is None:
-        #     self.post_message(TailFile(False))
 
     def action_scroll_up(self) -> None:
         if self.pointer_line is None:
@@ -1048,6 +1078,41 @@ class LogLines(ScrollView, inherit_bindings=False):
         else:
             self.post_message(DismissOverlay())
 
+    def action_navigate(self, steps: int, unit: Literal["m", "h", "d"]) -> None:
+        line_no = (
+            self.scroll_offset.y if self.pointer_line is None else self.pointer_line
+        )
+        timestamp = self.get_timestamp(line_no)
+        if timestamp is None:
+            return
+
+        direction = +1 if steps > 0 else -1
+        line_no += direction
+
+        if unit == "m":
+            target_timestamp = timestamp + timedelta(minutes=steps)
+        elif unit == "h":
+            target_timestamp = timestamp + timedelta(hours=steps)
+        elif unit == "d":
+            target_timestamp = timestamp + timedelta(hours=steps * 24)
+
+        if direction == +1:
+            line_count = self.line_count
+            while line_no < line_count:
+                timestamp = self.get_timestamp(line_no)
+                if timestamp is not None and timestamp >= target_timestamp:
+                    break
+                line_no += 1
+        else:
+            while line_no > 0:
+                timestamp = self.get_timestamp(line_no)
+                if timestamp is not None and timestamp <= target_timestamp:
+                    break
+                line_no -= 1
+
+        self.pointer_line = line_no
+        self.scroll_pointer_to_center()
+
     def watch_tail(self, tail: bool) -> None:
         self.set_class(tail, "-tail")
         if tail:
@@ -1058,8 +1123,6 @@ class LogLines(ScrollView, inherit_bindings=False):
 
     def update_line_count(self) -> None:
         line_count = len(self._line_breaks.get(self.log_file, []))
-        # if self._line_breaks and self._line_breaks[-1] != self._scanned_size:
-        #     line_count += 1
         line_count = max(1, line_count)
         self._line_count = line_count
         self.virtual_size = Size(
@@ -1283,7 +1346,8 @@ class LogView(Horizontal):
         log_file, _, _ = log_lines.index_to_span(pointer_line)
         log_footer = self.query_one(LogFooter)
         log_footer.line_no = pointer_line
-        log_footer.filename = log_file.name
+        if len(log_lines.log_files) > 1:
+            log_footer.filename = log_file.name
 
         _, _, timestamp = log_lines.get_text(pointer_line, block=True)
         log_footer.timestamp = timestamp
@@ -1296,7 +1360,9 @@ class LogView(Horizontal):
     @on(ScanProgress)
     def on_scan_progress(self, event: ScanProgress):
         event.stop()
-        self.query_one(ScanProgressBar).message = event.message
+        scan_progress_bar = self.query_one(ScanProgressBar)
+        scan_progress_bar.message = event.message
+        scan_progress_bar.complete = event.complete
 
     @on(ScanComplete)
     async def on_scan_complete(self, event: ScanComplete) -> None:
