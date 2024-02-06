@@ -3,22 +3,13 @@ import json
 import re
 from typing import TypeAlias
 
-from rich.highlighter import RegexHighlighter, JSONHighlighter
+from rich.highlighter import JSONHighlighter
 from rich.text import Text
 
 from .highlighter import LogHighlighter
-from . import timestamps
+from tailless import timestamps
 
 ParseResult: TypeAlias = tuple[datetime | None, str, Text]
-
-
-def _combine_regex(*regexes: str) -> str:
-    """Combine a number of regexes in to a single regex.
-
-    Returns:
-        str: New regex with all regexes ORed together.
-    """
-    return "|".join(regexes)
 
 
 class LogFormat:
@@ -52,7 +43,7 @@ class RegexLogFormat(LogFormat):
         text = self.highlighter(line)
         if status := groups.get("status", None):
             text.highlight_words(
-                [status], "bold red" if status.startswith("4") else "magenta"
+                [f" {status} "], "bold red" if status.startswith("4") else "magenta"
             )
         text.highlight_words(self.HIGHLIGHT_WORDS, "bold yellow")
 
@@ -106,20 +97,19 @@ FORMATS = [
 ]
 
 
-def parse(line: str) -> ParseResult:
-    for format in FORMATS:
-        parse_result = format.parse(line)
-        if parse_result is not None:
-            return parse_result
-    return None, "", Text()
+class FormatParser:
+    """Parses a log line."""
 
+    def __init__(self) -> None:
+        self._formats = FORMATS.copy()
 
-if __name__ == "__main__":
-    timestamp, line, text = parse(
-        '38.174.114.112 - - [29/Jan/2024:13:49:22 +0000] "GET /login.php?s=Admin/login HTTP/1.1" 301 170 "-" "python-requests/2.24.0"'
-    )
-    from rich import print
-
-    # print(line)
-
-    print(text)
+    def parse(self, line: str) -> ParseResult:
+        """Parse a line."""
+        for index, format in enumerate(self._formats):
+            parse_result = format.parse(line)
+            if parse_result is not None:
+                if index:
+                    del self._formats[index : index + 1]
+                    self._formats.insert(0, format)
+                return parse_result
+        return None, "", Text()

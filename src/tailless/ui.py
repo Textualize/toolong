@@ -9,7 +9,9 @@ from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import TabbedContent, TabPane
 
-from .log_view import LogLines, LogView
+from .log_lines import LogLines
+
+from .log_view import LogView
 from .watcher import Watcher
 
 

@@ -10,9 +10,9 @@ from textual.widget import Widget
 from textual.widgets import Input, Checkbox
 
 
-class FilterDialog(Widget, can_focus_children=True):
+class FindDialog(Widget, can_focus_children=True):
     DEFAULT_CSS = """
-    FilterDialog {
+    FindDialog {
         layout: horizontal;
         dock: top; 
         padding-top: 1;                       
@@ -73,7 +73,7 @@ class FilterDialog(Widget, can_focus_children=True):
         self.post_message(self.SelectLine())
 
     def post_update(self) -> None:
-        update = FilterDialog.Update(
+        update = FindDialog.Update(
             find=self.query_one("#find", Input).value,
             regex=self.query_one("#regex", Checkbox).value,
             case_sensitive=self.query_one("#case-sensitive", Checkbox).value,
@@ -84,7 +84,7 @@ class FilterDialog(Widget, can_focus_children=True):
         return self.has_class("visible")
 
     def action_dismiss_find(self) -> None:
-        self.post_message(FilterDialog.Dismiss())
+        self.post_message(FindDialog.Dismiss())
 
     def action_pointer_down(self) -> None:
         self.post_message(self.MovePointer(direction=+1))

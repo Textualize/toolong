@@ -10,6 +10,7 @@ from typing import IO, Iterable
 from threading import Event
 
 
+from .format_parser import FormatParser, ParseResult
 from .timestamps import TimestampScanner
 
 
@@ -27,6 +28,7 @@ class LogFile:
         self.size = 0
         self.can_tail = False
         self.timestamp_scanner = TimestampScanner()
+        self.format_parser = FormatParser()
 
     def is_open(self) -> bool:
         return self.file is not None
@@ -40,6 +42,10 @@ class LogFile:
     def is_compressed(self) -> bool:
         _, encoding = mimetypes.guess_type(self.path.name, strict=False)
         return encoding in ("gzip", "bzip2")
+
+    def parse(self, line: str) -> ParseResult:
+        """Parse a line."""
+        return self.format_parser.parse(line)
 
     def get_create_time(self) -> datetime | None:
         try:
