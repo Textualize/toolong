@@ -22,6 +22,7 @@ Repository: [https://github.com/Textualize/tailless](https://github.com/Textuali
 
 ### Navigation
 
+- `tab` / `shift+tab` to navigate between widgets.
 - `Home` / `End` Jump to start or end of file. Press `end` a second time to *tail* the current file.
 - `Page Up` / `Page Down` to go to the next / previous page.
 - `↑` / `↓` Move up / down a line.

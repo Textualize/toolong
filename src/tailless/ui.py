@@ -3,13 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from textual.app import App, ComposeResult
-from textual.binding import Binding
 from textual.lazy import Lazy
-from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import TabbedContent, TabPane
-
-from .log_lines import LogLines
 
 from .log_view import LogView
 from .watcher import Watcher
@@ -31,7 +27,6 @@ class LogScreen(Screen):
             color: $panel;
         }
     }
-
     """
 
     def compose(self) -> ComposeResult:

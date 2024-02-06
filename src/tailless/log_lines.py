@@ -176,7 +176,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         .loglines--line-numbers-active {
             color: $warning;            
             text-style: bold;
-        }       
+        }               
     }
     """
     COMPONENT_CLASSES = {
@@ -340,7 +340,8 @@ class LogLines(ScrollView, inherit_bindings=False):
 
     def merge_log_files(self) -> None:
         worker = get_current_worker()
-        merge_lines: list[tuple[float, int, LogFile]] = []
+        self._merge_lines = []
+        merge_lines: list[tuple[float, int, LogFile]] = self._merge_lines
         append_meta = merge_lines.append
 
         for log_file in self.log_files:
@@ -376,7 +377,6 @@ class LogLines(ScrollView, inherit_bindings=False):
             position += log_file.size
 
         merge_lines.sort()
-        self._merge_lines = merge_lines
 
         self.post_message(ScanComplete(total_size, total_size))
 
@@ -406,7 +406,10 @@ class LogLines(ScrollView, inherit_bindings=False):
 
     def get_log_file_from_index(self, index: int) -> tuple[LogFile, int]:
         if self._merge_lines is not None:
-            _, index, log_file = self._merge_lines[index]
+            try:
+                _, index, log_file = self._merge_lines[index]
+            except IndexError:
+                return self.log_files[0], index
             return log_file, index
         return self.log_files[0], index
 
