@@ -14,9 +14,9 @@ REPOSITORY_LINK = "https://github.com/Textualize/tailless"
 HELP_MD = """
 TooLong is a log file viewer / navigator for the terminal.
 
-Built with [Textual](https://www.textualize.io/) by [Will McGugan](https://www.willmcgugan.com)
+Built with [Textual](https://www.textualize.io/)
 
-Repository: [https://github.com/Textualize/tailless](https://github.com/Textualize/tailless)
+Repository: [https://github.com/Textualize/tailless](https://github.com/Textualize/tailless) Author: [Will McGugan](https://www.willmcgugan.com)
 
 ---
 

@@ -42,8 +42,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Iterable, Literal, Mapping
 
-SPLIT_REGEX = r"[\W/\[\]]"
-SPLIT_REGEX_WHITESPACE = r"[\s/\[\]]"
+SPLIT_REGEX = r"[\s/\[\]\(\)\"\/]"
 
 
 @dataclass
@@ -58,7 +57,11 @@ class LineRead(Message):
 
 
 class LineReader(Thread):
-    """A thread which read lines from log files."""
+    """A thread which read lines from log files.
+
+    This allows lines to be loaded lazily, i.e. without blocking.
+
+    """
 
     def __init__(self, log_lines: LogLines) -> None:
         self.log_lines = log_lines
@@ -246,7 +249,6 @@ class LogLines(ScrollView, inherit_bindings=False):
         yield ScanProgressBar()
 
     def clear_caches(self) -> None:
-        # self._render_line_cache.clear()
         self._line_cache.clear()
         self._text_cache.clear()
 
@@ -272,7 +274,6 @@ class LogLines(ScrollView, inherit_bindings=False):
     def start_tail(self) -> None:
         def size_changed(size: int, breaks: list[int]) -> None:
             """Callback when the file changes size."""
-            # time.sleep(0)
             if self.message_queue_size > 10:
                 while self.message_queue_size > 2:
                     time.sleep(0.1)
@@ -556,9 +557,7 @@ class LogLines(ScrollView, inherit_bindings=False):
 
             search_index = self._search_index
 
-            for word in re.split(SPLIT_REGEX, text.plain) + re.split(
-                SPLIT_REGEX_WHITESPACE, text.plain
-            ):
+            for word in re.split(SPLIT_REGEX, text.plain):
                 if len(word) <= 1:
                     continue
                 for offset in range(1, len(word) - 1):
