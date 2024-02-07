@@ -19,6 +19,7 @@ from tailless.messages import (
     ScanProgress,
     TailFile,
 )
+from tailless.help import HelpScreen
 from tailless.watcher import Watcher
 
 
@@ -269,7 +270,6 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.add_class("-scanning")
         self._line_reader.start()
         self.initial_scan_worker = self.run_scan()
-        # self.start_tail()
 
     def start_tail(self) -> None:
         def size_changed(size: int, breaks: list[int]) -> None:
@@ -834,8 +834,6 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.scroll_pointer_to_center(animate=abs(initial_line_no - line_no) < 100)
 
     def action_help(self) -> None:
-        from .help import HelpScreen
-
         self.app.push_screen(HelpScreen())
 
     def watch_tail(self, tail: bool) -> None:
@@ -882,7 +880,6 @@ class LogLines(ScrollView, inherit_bindings=False):
             self.update_line_count()
 
         if self.tail:
-            # self.scroll_y = self.max_scroll_y
             if self.pointer_line is not None and pointer_distance_from_end is not None:
                 self.pointer_line = self.virtual_size.height - pointer_distance_from_end
             self.scroll_to(y=self.max_scroll_y, animate=False, force=True)
@@ -916,6 +913,8 @@ class LogLines(ScrollView, inherit_bindings=False):
         self._scan_start = event.scan_start
         self.update_line_count()
         self.refresh()
+        if len(self.log_files) == 1:
+            self.start_tail()
 
     @on(ScanProgress)
     def on_scan_progress(self, event: ScanProgress):

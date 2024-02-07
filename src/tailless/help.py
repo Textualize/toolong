@@ -10,6 +10,7 @@ from textual.widgets import Static, Markdown, Footer
 
 TEXTUAL_LINK = "https://www.textualize.io/"
 REPOSITORY_LINK = "https://github.com/Textualize/tailless"
+LOGMERGER_LINK = "https://github.com/ptmcg/logmerger"
 
 HELP_MD = """
 TooLong is a log file viewer / navigator for the terminal.
@@ -74,6 +75,22 @@ When in pointer mode, the navigation keys will move this pointer rather than scr
 Press `enter` again or click the line a second time to expand the line in to a new panel.
 
 Press `escape` to hide the line panel if it is visible, or to leave pointer mode if the line panel is not visible.
+
+
+### Credits
+
+Inspiration and regexes taken from [LogMerger](https://github.com/ptmcg/logmerger) by Paul McGuire.
+
+
+### License
+
+Copyright 2024 Will McGugan
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 """
 
@@ -140,6 +157,7 @@ class HelpScreen(ModalScreen):
         ("a", f"go('https://www.willmcgugan.com')", "Author"),
         ("t", f"go({TEXTUAL_LINK!r})", "Textual"),
         ("r", f"go({REPOSITORY_LINK!r})", "Repository"),
+        ("l", f"go({LOGMERGER_LINK!r})", "Logmerger"),
     ]
 
     def compose(self) -> ComposeResult:

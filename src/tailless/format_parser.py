@@ -19,7 +19,6 @@ class LogFormat:
 
 class RegexLogFormat(LogFormat):
     REGEX = re.compile(".*?")
-    TIMESTAMP = "%d/%b/%Y:%H:%M:%S %z"
     HIGHLIGHT_WORDS = [
         "GET",
         "POST",
@@ -54,14 +53,12 @@ class CommonLogFormat(RegexLogFormat):
     REGEX = re.compile(
         r'(?P<ip>.*?) (?P<remote_log_name>.*?) (?P<userid>.*?) (?P<date>\[.*?(?= ).*?\]) "(?P<request_method>.*?) (?P<path>.*?)(?P<request_version> HTTP\/.*)?" (?P<status>.*?) (?P<length>.*?) "(?P<referrer>.*?)"'
     )
-    TIMESTAMP = "[%d/%b/%Y:%H:%M:%S %z]"
 
 
 class CombinedLogFormat(RegexLogFormat):
     REGEX = re.compile(
         r'(?P<ip>.*?) (?P<remote_log_name>.*?) (?P<userid>.*?) \[(?P<date>.*?)(?= ) (?P<timezone>.*?)\] "(?P<request_method>.*?) (?P<path>.*?)(?P<request_version> HTTP\/.*)?" (?P<status>.*?) (?P<length>.*?) "(?P<referrer>.*?)" "(?P<user_agent>.*?)" (?P<session_id>.*?) (?P<generation_time_micro>.*?) (?P<virtual_host>.*)'
     )
-    TIMESTAMP = "%d/%b/%Y:%H:%M:%S %z"
 
 
 class DefaultLogFormat(LogFormat):
