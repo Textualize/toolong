@@ -512,6 +512,11 @@ class LogLines(ScrollView, inherit_bindings=False):
         )
 
     def render_lines(self, crop: Region) -> list[Strip]:
+        self.virtual_size = Size(
+            self._max_width
+            + (self.gutter_width if self.show_gutter or self.show_line_numbers else 0),
+            self.line_count,
+        )
         page_height = self.scrollable_content_region.height
         scroll_y = self.scroll_offset.y
         line_count = self.line_count
