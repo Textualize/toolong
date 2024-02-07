@@ -196,6 +196,7 @@ class LogLines(ScrollView, inherit_bindings=False):
     is_scrolling: reactive[int] = reactive(int)
     pending_lines: reactive[int] = reactive(int)
     tail: reactive[bool] = reactive(True)
+    can_tail: reactive[bool] = reactive(True)
     show_line_numbers: reactive[bool] = reactive(False)
 
     def __init__(self, watcher: Watcher, file_paths: list[str]) -> None:
@@ -911,7 +912,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         self._scan_start = event.scan_start
         self.update_line_count()
         self.refresh()
-        if len(self.log_files) == 1:
+        if len(self.log_files) == 1 and self.can_tail:
             self.start_tail()
 
     @on(ScanProgress)

@@ -10,7 +10,6 @@ from textual.binding import Binding
 from textual.containers import Horizontal
 from textual import events
 from textual.reactive import reactive
-from textual.css.query import NoMatches
 from textual.widget import Widget
 from textual.widgets import Label
 from textual.widget import Widget
@@ -26,11 +25,9 @@ from toolong.messages import (
     ScanProgress,
     TailFile,
 )
-from .find_dialog import FindDialog
-from .line_panel import LinePanel
-from .watcher import Watcher
-
-
+from toolong.find_dialog import FindDialog
+from toolong.line_panel import LinePanel
+from toolong.watcher import Watcher
 from toolong.log_lines import LogLines
 
 
@@ -111,7 +108,7 @@ class FooterKey(Label):
         self.key = key
         self.key_display = key_display
         self.description = description
-        super().__init__()
+        super().__init__(id=f"key-{description.split()[0].lower()}")
 
     def render(self) -> str:
         return f"[reverse]{self.key_display}[/reverse] {self.description}"
@@ -141,7 +138,7 @@ class LogFooter(Widget):
         .meta {
             width: auto;
             height: 1;
-            color: $warning;
+            color: $success;
             padding: 0 1 0 0;
         }
         
@@ -162,6 +159,7 @@ class LogFooter(Widget):
     filename: reactive[str] = reactive("")
     timestamp: reactive[datetime | None] = reactive(None)
     tail: reactive[bool] = reactive(False)
+    can_tail: reactive[bool] = reactive(False)
 
     def compose(self) -> ComposeResult:
         with Horizontal(classes="key-container"):
@@ -181,9 +179,12 @@ class LogFooter(Widget):
         await key_container.mount_all(
             [
                 FooterKey(
-                    binding.key, binding.key_display or binding.key, binding.description
+                    binding.key,
+                    binding.key_display or binding.key,
+                    binding.description,
                 )
                 for binding in bindings
+                if not (binding.action == "toggle_tail" and not self.can_tail)
             ]
         )
 
@@ -205,7 +206,7 @@ class LogFooter(Widget):
         self.query_one(".meta", Label).update(Text(meta_line))
 
     def watch_tail(self, tail: bool) -> None:
-        self.query(".tail").set_class(tail, "on")
+        self.query(".tail").set_class(tail and self.can_tail, "on")
 
     def watch_filename(self, filename: str) -> None:
         self.update_meta()
@@ -246,7 +247,7 @@ class LogView(Horizontal):
     """
 
     BINDINGS = [
-        Binding("ctrl+t", "toggle('tail')", "Tail", key_display="^t"),
+        Binding("ctrl+t", "toggle_tail", "Tail", key_display="^t"),
         Binding("ctrl+f", "toggle('show_find')", "Find", key_display="^f"),
         Binding(
             "ctrl+l", "toggle('show_line_numbers')", "Line numbers", key_display="^l"
@@ -257,11 +258,15 @@ class LogView(Horizontal):
     show_panel: reactive[bool] = reactive(False)
     show_line_numbers: reactive[bool] = reactive(False)
     tail: reactive[bool] = reactive(False)
+    can_tail: reactive[bool] = reactive(True)
 
-    def __init__(self, file_paths: list[str], watcher: Watcher) -> None:
+    def __init__(
+        self, file_paths: list[str], watcher: Watcher, can_tail: bool = True
+    ) -> None:
         self.file_paths = file_paths
         self.watcher = watcher
         super().__init__()
+        self.can_tail = can_tail
 
     def compose(self) -> ComposeResult:
         yield (
@@ -269,12 +274,13 @@ class LogView(Horizontal):
                 LogView.tail,
                 LogView.show_line_numbers,
                 LogView.show_find,
+                LogView.can_tail,
             )
         )
         yield LinePanel()
         yield FindDialog(log_lines._suggester)
         yield InfoOverlay().data_bind(LogView.tail)
-        yield LogFooter().data_bind(LogView.tail)
+        yield LogFooter().data_bind(LogView.tail, LogView.can_tail)
 
     @on(FindDialog.Update)
     def filter_dialog_update(self, event: FindDialog.Update) -> None:
@@ -379,7 +385,16 @@ class LogView(Horizontal):
         self.post_message(PointerMoved(log_lines.pointer_line))
         self.tail = True
 
+        footer = self.query_one(LogFooter)
+        footer.call_after_refresh(footer.mount_keys)
+
     @on(events.DescendantFocus)
     @on(events.DescendantBlur)
     def on_descendant_focus(self, event: events.DescendantBlur) -> None:
         self.set_class(isinstance(self.screen.focused, LogLines), "lines-view")
+
+    def action_toggle_tail(self) -> None:
+        if not self.can_tail:
+            self.notify("Can't tail merged files", title="Tail", severity="error")
+        else:
+            self.tail = not self.tail

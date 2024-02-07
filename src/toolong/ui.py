@@ -35,7 +35,9 @@ class LogScreen(Screen):
             if self.app.merge:
                 tab_name = " + ".join(Path(path).name for path in self.app.file_paths)
                 with TabPane(tab_name):
-                    yield Lazy(LogView(self.app.file_paths, self.app.watcher))
+                    yield Lazy(
+                        LogView(self.app.file_paths, self.app.watcher, can_tail=False)
+                    )
             else:
                 for path in self.app.file_paths:
                     with TabPane(path):
