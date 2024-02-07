@@ -50,6 +50,7 @@ class LogScreen(Screen):
 
 
 class UI(App):
+    """The top level App object."""
 
     @classmethod
     def sort_paths(cls, paths: list[str]) -> list[str]:

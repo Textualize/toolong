@@ -7,7 +7,7 @@ from rich.highlighter import JSONHighlighter
 from rich.text import Text
 
 from .highlighter import LogHighlighter
-from tailless import timestamps
+from toolong import timestamps
 
 ParseResult: TypeAlias = tuple[datetime | None, str, Text]
 

@@ -23,11 +23,6 @@ class WatchedFile:
     callback: Callable[[int, list[int]], None]
     error_callback: Callable[[Exception], None]
 
-    # def __rich_repr__(self) -> rich.repr.Result:
-    #     yield self.path
-    #     yield "fileno", self.fileno
-    #     yield "size", self.size
-
 
 def scan_chunk(chunk: bytes, position: int) -> list[int]:
     """Scan line breaks in a binary chunk,

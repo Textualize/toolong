@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import rich.repr
 from textual.message import Message
 
-from tailless.log_file import LogFile
+from toolong.log_file import LogFile
 
 
 @dataclass

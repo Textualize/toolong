@@ -1,20 +1,24 @@
 [tool.poetry]
-name = "tailless"
+name = "toolong"
 version = "0.1.0"
-description = "A hybrid of tail and less"
+description = "A terminal log file viewer / tailer / analyzer"
 authors = ["Will McGugan <will@textualize.io>"]
 license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-textual = "^0.47.1"
+textual = "0.48.2"
 click = "^8.1.7"
 python-dateutil = "^2.8.2"
 
 [tool.poetry.group.dev.dependencies]
 textual-dev = "^1.4.0"
 
+[tool.poetry.scripts]
+tl = "toolong.cli:run"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+

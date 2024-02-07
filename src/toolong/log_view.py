@@ -16,9 +16,9 @@ from textual.widgets import Label
 from textual.widget import Widget
 
 
-from tailless.scan_progress_bar import ScanProgressBar
+from toolong.scan_progress_bar import ScanProgressBar
 
-from tailless.messages import (
+from toolong.messages import (
     DismissOverlay,
     PendingLines,
     PointerMoved,
@@ -31,7 +31,7 @@ from .line_panel import LinePanel
 from .watcher import Watcher
 
 
-from tailless.log_lines import LogLines
+from toolong.log_lines import LogLines
 
 
 SPLIT_REGEX = r"[\s/\[\]]"
@@ -47,6 +47,8 @@ class InfoOverlay(Widget):
         layer: overlay;
         width: 1fr;
         visibility: hidden;        
+        offset-y: -1;
+        text-style: bold;
     }
 
     InfoOverlay Horizontal {
@@ -71,15 +73,21 @@ class InfoOverlay(Widget):
     """
 
     message = reactive("")
+    tail = reactive(False)
 
     def compose(self) -> ComposeResult:
         self.tooltip = "Click to tail file"
         with Horizontal():
-            yield Label(" +100 lines ")
+            yield Label("")
 
     def watch_message(self, message: str) -> None:
+        self.display = bool(self.tail and self.message)
         self.query_one(Label).update(message)
-        self.display = bool(message)
+
+    def watch_tail(self, tail: bool) -> None:
+        if not tail:
+            self.message = ""
+        self.display = bool(tail and self.message)
 
     def on_click(self) -> None:
         self.post_message(TailFile())
@@ -265,7 +273,7 @@ class LogView(Horizontal):
         )
         yield LinePanel()
         yield FindDialog(log_lines._suggester)
-        yield InfoOverlay()
+        yield InfoOverlay().data_bind(LogView.tail)
         yield LogFooter().data_bind(LogView.tail)
 
     @on(FindDialog.Update)
@@ -315,8 +323,8 @@ class LogView(Horizontal):
     def on_tail_file(self, event: TailFile) -> None:
         self.tail = event.tail
         event.stop()
-        if not event.tail:
-            self.query_one(InfoOverlay).message = ""
+
+        # self.query_one(InfoOverlay).message = ""
 
     async def update_panel(self) -> None:
         if not self.show_panel:
@@ -369,9 +377,7 @@ class LogView(Horizontal):
         log_lines.loading = False
         self.query_one("LogLines").remove_class("-scanning")
         self.post_message(PointerMoved(log_lines.pointer_line))
-        await self.query_one(LogFooter).mount_keys()
-
-        # log_lines.start_tail()
+        self.tail = True
 
     @on(events.DescendantFocus)
     @on(events.DescendantBlur)

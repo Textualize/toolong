@@ -9,7 +9,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Static, Markdown, Footer
 
 TEXTUAL_LINK = "https://www.textualize.io/"
-REPOSITORY_LINK = "https://github.com/Textualize/tailless"
+REPOSITORY_LINK = "https://github.com/Textualize/toolong"
 LOGMERGER_LINK = "https://github.com/ptmcg/logmerger"
 
 HELP_MD = """
@@ -17,7 +17,7 @@ TooLong is a log file viewer / navigator for the terminal.
 
 Built with [Textual](https://www.textualize.io/)
 
-Repository: [https://github.com/Textualize/tailless](https://github.com/Textualize/tailless) Author: [Will McGugan](https://www.willmcgugan.com)
+Repository: [https://github.com/Textualize/toolong](https://github.com/Textualize/toolong) Author: [Will McGugan](https://www.willmcgugan.com)
 
 ---
 

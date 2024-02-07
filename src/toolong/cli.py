@@ -1,6 +1,6 @@
 import click
 
-from tailless.ui import UI
+from toolong.ui import UI
 
 
 @click.command()
@@ -14,7 +14,3 @@ def run(files: list[str], merge: bool):
         ctx.exit()
     ui = UI(files, merge=merge)
     ui.run()
-
-
-if __name__ == "__main__":
-    run()

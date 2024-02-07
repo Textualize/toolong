@@ -6,10 +6,10 @@ from threading import Event, Thread
 
 from textual.message import Message
 from textual.suggester import Suggester
-from tailless.scan_progress_bar import ScanProgressBar
-from tailless.find_dialog import FindDialog
-from tailless.log_file import LogFile
-from tailless.messages import (
+from toolong.scan_progress_bar import ScanProgressBar
+from toolong.find_dialog import FindDialog
+from toolong.log_file import LogFile
+from toolong.messages import (
     DismissOverlay,
     FileError,
     NewBreaks,
@@ -19,8 +19,8 @@ from tailless.messages import (
     ScanProgress,
     TailFile,
 )
-from tailless.help import HelpScreen
-from tailless.watcher import Watcher
+from toolong.help import HelpScreen
+from toolong.watcher import Watcher
 
 
 from rich.segment import Segment
@@ -506,7 +506,11 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.log_file.close()
 
     def on_idle(self) -> None:
-        self.update_line_count()
+        self.virtual_size = Size(
+            self._max_width
+            + (self.gutter_width if self.show_gutter or self.show_line_numbers else 0),
+            self.line_count,
+        )
 
     def render_lines(self, crop: Region) -> list[Strip]:
         page_height = self.scrollable_content_region.height
@@ -528,10 +532,8 @@ class LogLines(ScrollView, inherit_bindings=False):
             self._gutter_width = 0
         if self.pointer_line is not None:
             self._gutter_width += 3
-        try:
-            return super().render_lines(crop)
-        finally:
-            self.update_line_count()
+
+        return super().render_lines(crop)
 
     def render_line(self, y: int) -> Strip:
         scroll_x, scroll_y = self.scroll_offset
@@ -848,20 +850,16 @@ class LogLines(ScrollView, inherit_bindings=False):
         line_count = len(self._line_breaks.get(self.log_file, []))
         line_count = max(1, line_count)
         self._line_count = line_count
-        self.virtual_size = Size(
-            self._max_width
-            + (self.gutter_width if self.show_gutter or self.show_line_numbers else 0),
-            self.line_count,
-        )
 
     @on(NewBreaks)
     def on_new_breaks(self, event: NewBreaks) -> None:
         line_breaks = self._line_breaks.setdefault(event.log_file, [])
-        first = not not line_breaks
+        first = not line_breaks
         event.stop()
         self._scanned_size = max(self._scanned_size, event.scanned_size)
+
         if not self.tail and event.tail:
-            self.post_message(PendingLines(len(line_breaks) - self.line_count))
+            self.post_message(PendingLines(len(line_breaks) - self._line_count + 1))
 
         line_breaks.extend(event.breaks)
         if not event.tail:
