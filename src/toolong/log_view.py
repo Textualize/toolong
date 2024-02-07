@@ -191,7 +191,7 @@ class LogFooter(Widget):
                             binding.description,
                         )
                         for binding in bindings
-                        if not (binding.action == "toggle_tail" and not self.can_tail)
+                        if not (binding.action == "toggle_tail" and self.can_tail)
                     ]
                 )
 
@@ -213,7 +213,10 @@ class LogFooter(Widget):
         self.query_one(".meta", Label).update(Text(meta_line))
 
     def watch_tail(self, tail: bool) -> None:
-        self.query(".tail").set_class(tail and self.can_tail, "on")
+        self.query(".tail").set_class(tail, "on")
+
+    async def watch_can_tail(self, can_tail: bool) -> None:
+        await self.mount_keys()
 
     def watch_filename(self, filename: str) -> None:
         self.update_meta()
@@ -247,10 +250,10 @@ class LogView(Horizontal):
 
     BINDINGS = [
         Binding("ctrl+t", "toggle_tail", "Tail", key_display="^t"),
-        Binding("ctrl+f", "toggle('show_find')", "Find", key_display="^f"),
         Binding(
             "ctrl+l", "toggle('show_line_numbers')", "Line numbers", key_display="^l"
         ),
+        Binding("ctrl+f", "toggle('show_find')", "Find", key_display="^f"),
     ]
 
     show_find: reactive[bool] = reactive(False)
@@ -328,8 +331,6 @@ class LogView(Horizontal):
     def on_tail_file(self, event: TailFile) -> None:
         self.tail = event.tail
         event.stop()
-
-        # self.query_one(InfoOverlay).message = ""
 
     async def update_panel(self) -> None:
         if not self.show_panel:

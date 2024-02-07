@@ -28,7 +28,7 @@ class FindDialog(Widget, can_focus_children=True):
     }    
     """
     BINDINGS = [
-        Binding("escape", "dismiss_find", "Dismiss", key_display="esc"),
+        Binding("escape", "dismiss_find", "Dismiss", key_display="esc", show=False),
         Binding("down", "pointer_down", "Next", key_display="↓"),
         Binding("up", "pointer_up", "Previous", key_display="↑"),
     ]

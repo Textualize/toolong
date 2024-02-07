@@ -43,12 +43,22 @@ class LogScreen(Screen):
                 tab_name = " + ".join(Path(path).name for path in self.app.file_paths)
                 with TabPane(tab_name):
                     yield Lazy(
-                        LogView(self.app.file_paths, self.app.watcher, can_tail=False)
+                        LogView(
+                            self.app.file_paths,
+                            self.app.watcher,
+                            can_tail=False,
+                        )
                     )
             else:
                 for path in self.app.file_paths:
                     with TabPane(path):
-                        yield Lazy(LogView([path], self.app.watcher))
+                        yield Lazy(
+                            LogView(
+                                [path],
+                                self.app.watcher,
+                                can_tail=True,
+                            )
+                        )
 
     def on_mount(self) -> None:
         assert isinstance(self.app, UI)
