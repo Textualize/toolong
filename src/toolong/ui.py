@@ -3,15 +3,22 @@ from __future__ import annotations
 from pathlib import Path
 
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from textual.lazy import Lazy
 from textual.screen import Screen
 from textual.widgets import TabbedContent, TabPane
 
-from .log_view import LogView
-from .watcher import Watcher
+from toolong.log_view import LogView
+from toolong.watcher import Watcher
+from toolong.help import HelpScreen
 
 
 class LogScreen(Screen):
+
+    BINDINGS = [
+        Binding("f1", "help", "Help"),
+    ]
+
     CSS = """
     LogScreen {
         layers: overlay;
@@ -49,6 +56,9 @@ class LogScreen(Screen):
         active_pane = self.query_one(TabbedContent).active_pane
         if active_pane is not None:
             active_pane.query("LogView > LogLines").focus()
+
+    def action_help(self) -> None:
+        self.app.push_screen(HelpScreen())
 
 
 class UI(App):

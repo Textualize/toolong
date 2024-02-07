@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Any, Coroutine
 
 from textual import on
 from textual.app import ComposeResult
@@ -29,9 +28,9 @@ class FindDialog(Widget, can_focus_children=True):
     }    
     """
     BINDINGS = [
-        Binding("escape", "dismiss_find", "Dismiss"),
-        Binding("down", "pointer_down", "Next"),
-        Binding("up", "pointer_up", "Previous"),
+        Binding("escape", "dismiss_find", "Dismiss", key_display="esc"),
+        Binding("down", "pointer_down", "Next", key_display="↓"),
+        Binding("up", "pointer_up", "Previous", key_display="↑"),
     ]
     DEFAULT_CLASSES = "float"
     BORDER_TITLE = "Find"

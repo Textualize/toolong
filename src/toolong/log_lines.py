@@ -19,7 +19,6 @@ from toolong.messages import (
     ScanProgress,
     TailFile,
 )
-from toolong.help import HelpScreen
 from toolong.watcher import Watcher
 
 
@@ -139,7 +138,6 @@ class LogLines(ScrollView, inherit_bindings=False):
         Binding("pagedown", "page_down", "Page Down", show=False),
         Binding("enter", "select", "Select line", show=False),
         Binding("escape", "dismiss", "Dismiss", show=False, priority=True),
-        Binding("f1", "help", "Help"),
         Binding("m", "navigate(+1, 'm')"),
         Binding("M", "navigate(-1, 'm')"),
         Binding("h", "navigate(+1, 'h')"),
@@ -835,9 +833,6 @@ class LogLines(ScrollView, inherit_bindings=False):
 
         self.pointer_line = line_no
         self.scroll_pointer_to_center(animate=abs(initial_line_no - line_no) < 100)
-
-    def action_help(self) -> None:
-        self.app.push_screen(HelpScreen())
 
     def watch_tail(self, tail: bool) -> None:
         self.set_class(tail, "-tail")

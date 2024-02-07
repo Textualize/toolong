@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from asyncio import Lock
 from datetime import datetime
 
 from rich.text import Text
@@ -108,7 +109,7 @@ class FooterKey(Label):
         self.key = key
         self.key_display = key_display
         self.description = description
-        super().__init__(id=f"key-{description.split()[0].lower()}")
+        super().__init__()
 
     def render(self) -> str:
         return f"[reverse]{self.key_display}[/reverse] {self.description}"
@@ -161,6 +162,10 @@ class LogFooter(Widget):
     tail: reactive[bool] = reactive(False)
     can_tail: reactive[bool] = reactive(False)
 
+    def __init__(self) -> None:
+        self.lock = Lock()
+        super().__init__()
+
     def compose(self) -> ComposeResult:
         with Horizontal(classes="key-container"):
             pass
@@ -168,25 +173,27 @@ class LogFooter(Widget):
         yield Label("", classes="meta")
 
     async def mount_keys(self) -> None:
-        key_container = self.query_one(".key-container")
-        await key_container.query("*").remove()
-        bindings = [
-            binding
-            for (_, binding) in self.app.namespace_bindings.values()
-            if binding.show
-        ]
+        async with self.lock:
+            with self.app.batch_update():
+                key_container = self.query_one(".key-container")
+                await key_container.query("*").remove()
+                bindings = [
+                    binding
+                    for (_, binding) in self.app.namespace_bindings.values()
+                    if binding.show
+                ]
 
-        await key_container.mount_all(
-            [
-                FooterKey(
-                    binding.key,
-                    binding.key_display or binding.key,
-                    binding.description,
+                await key_container.mount_all(
+                    [
+                        FooterKey(
+                            binding.key,
+                            binding.key_display or binding.key,
+                            binding.description,
+                        )
+                        for binding in bindings
+                        if not (binding.action == "toggle_tail" and not self.can_tail)
+                    ]
                 )
-                for binding in bindings
-                if not (binding.action == "toggle_tail" and not self.can_tail)
-            ]
-        )
 
     async def on_mount(self):
         self.watch(self.screen, "focused", self.mount_keys)
@@ -235,14 +242,6 @@ class LogView(Horizontal):
             width: 50%;
             display: none;            
         }
-        LogFooter .key {            
-            opacity: 0;
-            transition: opacity 200ms;
-        }
-        &.lines-view LogFooter .key {
-            
-            opacity: 1;
-        }
     }
     """
 
@@ -289,7 +288,7 @@ class LogView(Horizontal):
         log_lines.regex = event.regex
         log_lines.case_sensitive = event.case_sensitive
 
-    def watch_show_find(self, show_find: bool) -> None:
+    async def watch_show_find(self, show_find: bool) -> None:
         if not self.is_mounted:
             return
         filter_dialog = self.query_one(FindDialog)
