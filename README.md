@@ -39,9 +39,10 @@ https://github.com/Textualize/tailless/assets/554369/a434d427-fa9a-44bf-bafb-1cf
 
 I spent a lot of time in my past life as a web developer working with logs, typically on web servers via ssh.
 I would use a variety of tools, but my goto method of analyzing logs was directly on the server with *nix tools like as `tail`, `less`, and `grep` etc.
-As useful as these tools are, they are not without friction, and can be difficult to decypher.
+As useful as these tools are, they are not without friction.
 
 I built `toolong` to be the tool I would have wanted back then.
+It is snappy, straightforward to use, and does a lot of the *grunt work* for you.
 
 
 ## Who?
