@@ -694,16 +694,12 @@ class LogLines(ScrollView, inherit_bindings=False):
         )
 
     def watch_show_find(self, show_find: bool) -> None:
-        self.clear_caches()
         if not show_find:
             self.pointer_line = None
 
     def watch_find(self, find: str) -> None:
         if not find:
             self.pointer_line = None
-        # self._line_cache.clear()
-        # self._text_cache.clear()
-        # self.clear_caches()
 
     def watch_case_sensitive(self) -> None:
         self.clear_caches()
