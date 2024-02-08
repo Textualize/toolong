@@ -75,33 +75,22 @@ In the near future we should have Toolong available through your prefered packag
 ## Screenshots
 
 <table>
-
-<tr>
-<td>
-<img width="100%" alt="Screenshot 2024-02-08 at 13 47 28" src="https://github.com/Textualize/tailless/assets/554369/e4b9e41b-2a42-4cef-b47c-e58a9e4db44a">
-</td>
-
-<td>
-<img width="100%" alt="Screenshot 2024-02-08 at 13 48 04" src="https://github.com/Textualize/tailless/assets/554369/1a5c3dff-e93c-4746-99d4-2e58f6b44b19">
-
-
-</td>
-</tr>
-
-<tr>
-
-
-<td>
-<img width="100%" alt="Screenshot 2024-02-08 at 13 49 22" src="https://github.com/Textualize/tailless/assets/554369/e130a550-579a-4bd1-9281-1cef520634f8">
-</td>
-
-
-<td>
-<img width="100%" alt="Screenshot 2024-02-08 at 13 50 04" src="https://github.com/Textualize/tailless/assets/554369/5e620070-4eb8-49e0-9dfa-7ac335b18a62">
-</td>
-
-</tr>
-
+    <tr>
+        <td>
+            <img width="100%" alt="Screenshot 2024-02-08 at 13 47 28" src="https://github.com/Textualize/tailless/assets/554369/e4b9e41b-2a42-4cef-b47c-e58a9e4db44a">
+        </td>
+        <td>
+            <img width="100%" alt="Screenshot 2024-02-08 at 13 48 04" src="https://github.com/Textualize/tailless/assets/554369/1a5c3dff-e93c-4746-99d4-2e58f6b44b19">
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <img width="100%" alt="Screenshot 2024-02-08 at 13 49 22" src="https://github.com/Textualize/tailless/assets/554369/e130a550-579a-4bd1-9281-1cef520634f8">
+        </td>
+        <td>
+            <img width="100%" alt="Screenshot 2024-02-08 at 13 50 04" src="https://github.com/Textualize/tailless/assets/554369/5e620070-4eb8-49e0-9dfa-7ac335b18a62">
+        </td>
+    </tr>
 </table>
 
 ## More videos
@@ -132,7 +121,7 @@ https://github.com/Textualize/tailless/assets/554369/7eea6a0e-b30d-4a94-bb45-c5b
 Toolong v1.0.0 has a solid feature set, which covers most of my requirements.
 However, there is a tonne of features which could be added to something like this, and I will likely implement some of them in the future.
 
-If you want to talk about Toolong, find me on the [Textualize Discord Server](https://img.shields.io/discord/1026214085173461072)](https://discord.gg/Enf6Z3qhVr)
+If you want to talk about Toolong, find me on the [Textualize Discord Server](https://discord.gg/Enf6Z3qhVr).
 
 
 ## Alternatives
