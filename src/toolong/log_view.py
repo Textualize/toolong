@@ -9,6 +9,7 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
+from textual.dom import NoScreen
 from textual import events
 from textual.reactive import reactive
 from textual.widget import Widget
@@ -79,13 +80,13 @@ class InfoOverlay(Widget):
             yield Label("")
 
     def watch_message(self, message: str) -> None:
-        self.display = bool(self.tail and self.message)
+        self.display = bool(message)
         self.query_one(Label).update(message)
 
     def watch_tail(self, tail: bool) -> None:
         if not tail:
             self.message = ""
-        self.display = bool(tail and self.message)
+        self.display = bool(self.message and not tail)
 
     def on_click(self) -> None:
         self.post_message(TailFile())
@@ -173,8 +174,11 @@ class LogFooter(Widget):
         yield Label("", classes="meta")
 
     async def mount_keys(self) -> None:
-        if self.screen != self.app.screen:
-            return
+        try:
+            if self.screen != self.app.screen:
+                return
+        except NoScreen:
+            pass
         async with self.lock:
             with self.app.batch_update():
                 key_container = self.query_one(".key-container")
