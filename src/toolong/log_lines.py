@@ -223,10 +223,6 @@ class LogLines(ScrollView, inherit_bindings=False):
         self._merge_lines: list[tuple[float, int, LogFile]] | None = None
 
     @property
-    def file_path(self) -> str:
-        return self.file_paths[0]
-
-    @property
     def log_file(self) -> LogFile:
         return self.log_files[0]
 

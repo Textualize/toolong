@@ -1,4 +1,5 @@
 import webbrowser
+from importlib.metadata import version
 
 from rich.text import Text
 
@@ -94,7 +95,7 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 
 """
 
-TITLE = r"""
+TITLE = rf"""
  _______          _                       
 |__   __|        | |    Built with Textual
    | | ___   ___ | |     ___  _ __   __ _ 
@@ -102,7 +103,7 @@ TITLE = r"""
    | | (_) | (_) | |___| (_) | | | | (_| |
    |_|\___/ \___/|______\___/|_| |_|\__, |
                                      __/ |
-   Moving at Terminal velocity      |___/ 
+   Moving at Terminal velocity      |___/  v{version('toolong')}
 
 """
 

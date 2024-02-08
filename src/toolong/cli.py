@@ -1,9 +1,11 @@
+from importlib.metadata import version
 import click
 
 from toolong.ui import UI
 
 
 @click.command()
+@click.version_option(version("toolong"))
 @click.argument("files", metavar="FILE1 FILE2", nargs=-1)
 @click.option("-m", "--merge", is_flag=True, help="Merge files")
 def run(files: list[str], merge: bool):
