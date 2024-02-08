@@ -10,8 +10,7 @@
 
 # Toolong
 
-
-View, tail, merge, and search log files from the terminal.
+A terminal application to view, tail, merge, and search log files (plus JSONL).
 
 <details>  
   <summary> 🎬 Viewing a single file </summary>
@@ -20,12 +19,10 @@ View, tail, merge, and search log files from the terminal.
 
 https://github.com/Textualize/tailless/assets/554369/a434d427-fa9a-44bf-bafb-1cfef32d65b9
 
-
 </details>
 
 
 ## Features
-
 
 <img width="40%" align="right" alt="Screenshot 2024-02-08 at 13 47 28" src="https://github.com/Textualize/tailless/assets/554369/e4b9e41b-2a42-4cef-b47c-e58a9e4db44a">
 
