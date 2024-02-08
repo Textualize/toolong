@@ -5,9 +5,7 @@
 </p>
 
 
-<p align="center">
 [![Discord](https://img.shields.io/discord/1026214085173461072)](https://discord.gg/Enf6Z3qhVr)
-</p>
 
 # Toolong
 
@@ -18,10 +16,11 @@ A terminal application to view, tail, merge, and search log files (plus JSONL).
     
 &nbsp;
 
-https://github.com/Textualize/tailless/assets/554369/a434d427-fa9a-44bf-bafb-1cfef32d65b9
+<div align="center">
+  <video src="https://github.com/Textualize/tailless/assets/554369/a434d427-fa9a-44bf-bafb-1cfef32d65b9" width="400" />
+</div>
 
 </details>
-
 
 
 ## Features
