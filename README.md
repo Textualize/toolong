@@ -20,24 +20,33 @@ View, tail, merge, and search log files from the terminal.
 
 https://github.com/Textualize/tailless/assets/554369/a434d427-fa9a-44bf-bafb-1cfef32d65b9
 
+
 </details>
 
 
-# Features
+## Features
+
+
+<img width="40%" align="right" alt="Screenshot 2024-02-08 at 13 47 28" src="https://github.com/Textualize/tailless/assets/554369/e4b9e41b-2a42-4cef-b47c-e58a9e4db44a">
+
 
 - Live tailing of log files.
 - Syntax highlights common web server log formats.
-- Files don't need to be loaded in to memory, which means it is as fast to open a multiple-gigabyte files as a tiny text file.
-- Support for JSONL files, individual lines are pretty printed.
+- Files don't need to be loaded in to memory, which means it is as fast to open a multiple-gigabyte files as it is to open tiny text file.
+- Support for JSONL files: lines are pretty printed.
 - Opens .bz and .bz2 files automatically.
 - Merges log files by auto detecting timestamps.
+  
 
 
 ## Why?
 
 I spent a lot of time in my past life as a web developer working with logs, typically on web servers via ssh.
 I would use a variety of tools, but my goto method of analyzing logs was directly on the server with *nix tools like as `tail`, `less`, and `grep` etc.
+As useful as these tools are, they are not without friction, and can be difficult to decypher.
+
 I built `toolong` to be the tool I would have wanted back then.
+
 
 ## Who?
 
@@ -118,6 +127,12 @@ https://github.com/Textualize/tailless/assets/554369/38936600-34ee-4fe1-9fd3-b15
 https://github.com/Textualize/tailless/assets/554369/7eea6a0e-b30d-4a94-bb45-c5bff0e329ca
 </details>
 
+## Development
+
+Toolong v1.0.0 has a solid feature set, which covers most of my requirements.
+However, there is a tonne of features which could be added to something like this, and I will likely implement some of them in the future.
+
+If you want to talk about Toolong, find me on the [Textualize Discord Server](https://img.shields.io/discord/1026214085173461072)](https://discord.gg/Enf6Z3qhVr)
 
 
 ## Alternatives
