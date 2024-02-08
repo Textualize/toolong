@@ -46,6 +46,22 @@ This [guy](https://github.com/willmcgugan). An ex web developer who somehow make
 
 ## Installing
 
+Toolong is currently best installed with [pipx](https://github.com/pypa/pipx).
+
+```bash
+pipx install toolong
+```
+
+You could also install Toolong with Pip:
+
+```bash
+pip install toolong
+```
+
+> [!NOTE] 
+> If you use pip, you should ideally create a virtual environment, to avoid potential dependancy conflicts.
+
+In the near future we should have Toolong available through your prefered package manager.
 
 ## Screenshots
 
