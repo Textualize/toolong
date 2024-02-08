@@ -8,18 +8,29 @@
 
 [![Discord](https://img.shields.io/discord/1026214085173461072)](https://discord.gg/Enf6Z3qhVr)
 
-# TooLong
+# Toolong
 
 
 View, tail, merge, and search log files from the terminal.
 
 <details>  
   <summary> 🎬 Viewing a single file </summary>
+    
 &nbsp;
+
 https://github.com/Textualize/tailless/assets/554369/a434d427-fa9a-44bf-bafb-1cfef32d65b9
+
 </details>
 
 
+# Features
+
+- Live tailing of log files.
+- Syntax highlights common web server log formats.
+- Files don't need to be loaded in to memory, which means it is as fast to open a multiple-gigabyte files as a tiny text file.
+- Support for JSONL files, individual lines are pretty printed.
+- Opens .bz and .bz2 files automatically.
+- Merges log files by auto detecting timestamps.
 
 
 ## Why?
@@ -31,6 +42,9 @@ I built `toolong` to be the tool I would have wanted back then.
 ## Who?
 
 This [guy](https://github.com/willmcgugan). An ex web developer who somehow makes a living writing terminal apps.
+
+
+## Installing
 
 
 ## Screenshots
@@ -70,18 +84,21 @@ This [guy](https://github.com/willmcgugan). An ex web developer who somehow make
 <details>  
   <summary> 🎬 Merging multiple (compressed) files </summary>
 &nbsp;
+    
 https://github.com/Textualize/tailless/assets/554369/efbbde11-bebf-44ff-8d2b-72a84b542b75
 </details>
 
 <details>  
   <summary> 🎬 Viewing JSONL files </summary>
 &nbsp;
+    
 https://github.com/Textualize/tailless/assets/554369/38936600-34ee-4fe1-9fd3-b1581fc3fa37
 </details>
 
 <details>  
   <summary> 🎬 Live Tailing a file </summary>
 &nbsp;
+    
 https://github.com/Textualize/tailless/assets/554369/7eea6a0e-b30d-4a94-bb45-c5bff0e329ca
 </details>
 
