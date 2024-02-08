@@ -35,7 +35,6 @@ https://github.com/Textualize/tailless/assets/554369/a434d427-fa9a-44bf-bafb-1cf
 - Merges log files by auto detecting timestamps.
   
 
-
 ## Why?
 
 I spent a lot of time in my past life as a web developer working with logs, typically on web servers via ssh.
@@ -52,6 +51,8 @@ This [guy](https://github.com/willmcgugan). An ex web developer who somehow make
 
 ## Installing
 
+Toolong is a Python application, but you don't neccesarily need to be a Python developer to use it.
+
 Toolong is currently best installed with [pipx](https://github.com/pypa/pipx).
 
 ```bash
@@ -65,9 +66,9 @@ pip install toolong
 ```
 
 > [!NOTE] 
-> If you use pip, you should ideally create a virtual environment, to avoid potential dependancy conflicts.
+> If you use pip, you should ideally create a virtual environment to avoid potential dependancy conflicts.
 
-In the near future we should have Toolong available through your prefered package manager.
+In the near future there will be more installation methods, and hopefully your favorite package manager.
 
 ## Screenshots
 
