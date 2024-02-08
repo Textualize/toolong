@@ -5,8 +5,9 @@
 </p>
 
 
-
+<p align="center">
 [![Discord](https://img.shields.io/discord/1026214085173461072)](https://discord.gg/Enf6Z3qhVr)
+</p>
 
 # Toolong
 
@@ -155,6 +156,10 @@ However, there is a tonne of features which could be added to something like thi
 
 If you want to talk about Toolong, find me on the [Textualize Discord Server](https://discord.gg/Enf6Z3qhVr).
 
+
+## Thanks
+
+I am grateful for the [LogMerger](https://github.com/ptmcg/logmerger) project which I referenced (and borrowed regexes from) when building Toolong.
 
 ## Alternatives
 
