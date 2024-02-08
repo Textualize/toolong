@@ -69,7 +69,32 @@ pip install toolong
 > [!NOTE] 
 > If you use pip, you should ideally create a virtual environment to avoid potential dependancy conflicts.
 
+However you install Toolong, the `tl` command will be added to your path.
+Run it to test instalation:
+
+```bash
+tl
+```
+
 In the near future there will be more installation methods, and hopefully your favorite package manager.
+
+## How to use Toolong
+
+To open a file with Toolong, add the file name(s) as arguments to the command:
+
+```bash
+tl mylogfile.log
+```
+
+If you add multiple filenames, they will open in tabs.
+
+Added the `--merge` switch to open multiple files and combine them in to a single view:
+
+```bash
+tl web.log*
+```
+
+In the app, press ++f1++ for additional help.
 
 ## Screenshots
 
@@ -114,6 +139,11 @@ https://github.com/Textualize/tailless/assets/554369/38936600-34ee-4fe1-9fd3-b15
     
 https://github.com/Textualize/tailless/assets/554369/7eea6a0e-b30d-4a94-bb45-c5bff0e329ca
 </details>
+
+## History
+
+If you [follow me](https://twitter.com/willmcgugan) on Twitter, you may have seen me refer to this app as *Tailless*, because it was intended to be a replacement for a `tail` + `less` combo.
+I settled on the name "Toolong" because it is a bit more apt, and still had the same initials.
 
 ## Development
 
