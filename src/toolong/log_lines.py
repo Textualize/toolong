@@ -128,8 +128,8 @@ class SearchSuggester(Suggester):
 
 class LogLines(ScrollView, inherit_bindings=False):
     BINDINGS = [
-        Binding("up", "scroll_up", "Scroll Up", show=False),
-        Binding("down", "scroll_down", "Scroll Down", show=False),
+        Binding("up,k", "scroll_up", "Scroll Up", show=False),
+        Binding("down,j", "scroll_down", "Scroll Down", show=False),
         Binding("left", "scroll_left", "Scroll Up", show=False),
         Binding("right", "scroll_right", "Scroll Right", show=False),
         Binding("home", "scroll_home", "Scroll Home", show=False),
@@ -202,9 +202,9 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.watcher = watcher
         self.file_paths = file_paths
         self.log_files = [LogFile(path) for path in file_paths]
-        self._render_line_cache: LRUCache[tuple[LogFile, int, int, bool], Strip] = (
-            LRUCache(maxsize=1000)
-        )
+        self._render_line_cache: LRUCache[
+            tuple[LogFile, int, int, bool, str], Strip
+        ] = LRUCache(maxsize=1000)
         self._max_width = 0
         self._search_index: LRUCache[str, str] = LRUCache(maxsize=10000)
         self._suggester = SearchSuggester(self._search_index)
@@ -546,7 +546,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         log_file_span = self.index_to_span(index)
 
         is_pointer = self.pointer_line is not None and index == self.pointer_line
-        cache_key = (*log_file_span, is_pointer)
+        cache_key = (*log_file_span, is_pointer, self.find)
 
         try:
             strip = self._render_line_cache[cache_key]
@@ -701,7 +701,9 @@ class LogLines(ScrollView, inherit_bindings=False):
     def watch_find(self, find: str) -> None:
         if not find:
             self.pointer_line = None
-        self.clear_caches()
+        # self._line_cache.clear()
+        # self._text_cache.clear()
+        # self.clear_caches()
 
     def watch_case_sensitive(self) -> None:
         self.clear_caches()
@@ -922,8 +924,8 @@ class LogLines(ScrollView, inherit_bindings=False):
         start = event.start
         end = event.end
         log_file = event.log_file
-        self._render_line_cache.discard((log_file, start, end, True))
-        self._render_line_cache.discard((log_file, start, end, False))
+        self._render_line_cache.discard((log_file, start, end, True, self.find))
+        self._render_line_cache.discard((log_file, start, end, False, self.find))
         self._line_cache[(log_file, start, end)] = event.line
         self._text_cache.discard((log_file, start, end, False))
         self._text_cache.discard((log_file, start, end, True))

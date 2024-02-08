@@ -87,7 +87,7 @@ class LogFile:
             import gzip
 
             compressed_file = gzip.open(self.path, "rb")
-        elif encoding == "bzip":
+        elif encoding == "bzip2":
             import bz2
 
             compressed_file = bz2.open(self.path, "rb")
