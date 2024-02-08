@@ -22,6 +22,7 @@ https://github.com/Textualize/tailless/assets/554369/a434d427-fa9a-44bf-bafb-1cf
 </details>
 
 
+
 ## Features
 
 <img width="40%" align="right" alt="Screenshot 2024-02-08 at 13 47 28" src="https://github.com/Textualize/tailless/assets/554369/e4b9e41b-2a42-4cef-b47c-e58a9e4db44a">
@@ -49,6 +50,28 @@ It is snappy, straightforward to use, and does a lot of the *grunt work* for you
 
 This [guy](https://github.com/willmcgugan). An ex web developer who somehow makes a living writing terminal apps.
 
+
+
+## Screenshots
+
+<table>
+    <tr>
+        <td>
+            <img width="100%" alt="Screenshot 2024-02-08 at 13 47 28" src="https://github.com/Textualize/tailless/assets/554369/e4b9e41b-2a42-4cef-b47c-e58a9e4db44a">
+        </td>
+        <td>
+            <img width="100%" alt="Screenshot 2024-02-08 at 13 48 04" src="https://github.com/Textualize/tailless/assets/554369/1a5c3dff-e93c-4746-99d4-2e58f6b44b19">
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <img width="100%" alt="Screenshot 2024-02-08 at 13 49 22" src="https://github.com/Textualize/tailless/assets/554369/e130a550-579a-4bd1-9281-1cef520634f8">
+        </td>
+        <td>
+            <img width="100%" alt="Screenshot 2024-02-08 at 13 50 04" src="https://github.com/Textualize/tailless/assets/554369/5e620070-4eb8-49e0-9dfa-7ac335b18a62">
+        </td>
+    </tr>
+</table>
 
 ## Installing
 
@@ -94,28 +117,8 @@ Added the `--merge` switch to open multiple files and combine them in to a singl
 tl web.log*
 ```
 
-In the app, press ++f1++ for additional help.
+In the app, press **F1** for additional help.
 
-## Screenshots
-
-<table>
-    <tr>
-        <td>
-            <img width="100%" alt="Screenshot 2024-02-08 at 13 47 28" src="https://github.com/Textualize/tailless/assets/554369/e4b9e41b-2a42-4cef-b47c-e58a9e4db44a">
-        </td>
-        <td>
-            <img width="100%" alt="Screenshot 2024-02-08 at 13 48 04" src="https://github.com/Textualize/tailless/assets/554369/1a5c3dff-e93c-4746-99d4-2e58f6b44b19">
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <img width="100%" alt="Screenshot 2024-02-08 at 13 49 22" src="https://github.com/Textualize/tailless/assets/554369/e130a550-579a-4bd1-9281-1cef520634f8">
-        </td>
-        <td>
-            <img width="100%" alt="Screenshot 2024-02-08 at 13 50 04" src="https://github.com/Textualize/tailless/assets/554369/5e620070-4eb8-49e0-9dfa-7ac335b18a62">
-        </td>
-    </tr>
-</table>
 
 ## More videos
 
