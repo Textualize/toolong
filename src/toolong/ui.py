@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import locale
+
 from pathlib import Path
 
 from textual.app import App, ComposeResult
@@ -11,6 +13,9 @@ from textual.widgets import TabbedContent, TabPane
 from toolong.log_view import LogView
 from toolong.watcher import Watcher
 from toolong.help import HelpScreen
+
+
+locale.setlocale(locale.LC_ALL, "")
 
 
 class LogScreen(Screen):

@@ -253,7 +253,8 @@ class LogView(Horizontal):
         Binding(
             "ctrl+l", "toggle('show_line_numbers')", "Line numbers", key_display="^l"
         ),
-        Binding("ctrl+f,slash", "toggle('show_find')", "Find", key_display="^f"),
+        Binding("ctrl+f", "toggle('show_find')", "Find", key_display="^f"),
+        Binding("slash", "toggle('show_find')", "Find", key_display="^f", show=False),
     ]
 
     show_find: reactive[bool] = reactive(False)
