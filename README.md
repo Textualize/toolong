@@ -125,22 +125,36 @@ In the app, press **F1** for additional help.
 <details>  
   <summary> 🎬 Merging multiple (compressed) files </summary>
 &nbsp;
+
+<div align="center">
+  <video src="https://github.com/Textualize/tailless/assets/554369/efbbde11-bebf-44ff-8d2b-72a84b542b75" />
+</div>
     
-https://github.com/Textualize/tailless/assets/554369/efbbde11-bebf-44ff-8d2b-72a84b542b75
+
 </details>
 
 <details>  
   <summary> 🎬 Viewing JSONL files </summary>
 &nbsp;
+
+<div align="center">
+  <video src="https://github.com/Textualize/tailless/assets/554369/38936600-34ee-4fe1-9fd3-b1581fc3fa37"  />
+</div>
     
-https://github.com/Textualize/tailless/assets/554369/38936600-34ee-4fe1-9fd3-b1581fc3fa37
+    
+
 </details>
 
 <details>  
   <summary> 🎬 Live Tailing a file </summary>
 &nbsp;
+
+<div align="center">
+  <video src="https://github.com/Textualize/tailless/assets/554369/7eea6a0e-b30d-4a94-bb45-c5bff0e329ca" />
+</div>
     
-https://github.com/Textualize/tailless/assets/554369/7eea6a0e-b30d-4a94-bb45-c5bff0e329ca
+    
+
 </details>
 
 ## History
