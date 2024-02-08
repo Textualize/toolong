@@ -36,7 +36,7 @@ Repository: [https://github.com/Textualize/toolong](https://github.com/Textualiz
 
 ### Other keys
 
-- `ctrl+f` Show find dialog.
+- `ctrl+f` or `/` Show find dialog.
 - `ctrl+l` Toggle line numbers.
 - `ctrl+t` Tail current file.
 
