@@ -30,11 +30,9 @@ class LogScreen(Screen):
         & TabPane {           
             padding: 0;
         }
-
         & Tabs:focus Underline > .underline--bar {
             color: $accent;
-        }
-        
+        }        
         Underline > .underline--bar {
             color: $panel;
         }
