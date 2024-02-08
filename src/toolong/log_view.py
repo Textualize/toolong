@@ -173,6 +173,8 @@ class LogFooter(Widget):
         yield Label("", classes="meta")
 
     async def mount_keys(self) -> None:
+        if self.screen != self.app.screen:
+            return
         async with self.lock:
             with self.app.batch_update():
                 key_container = self.query_one(".key-container")
