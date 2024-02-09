@@ -46,12 +46,6 @@ I built `toolong` to be the tool I would have wanted back then.
 It is snappy, straightforward to use, and does a lot of the *grunt work* for you.
 
 
-## Who?
-
-This [guy](https://github.com/willmcgugan). An ex web developer who somehow makes a living writing terminal apps.
-
-
-
 ## Screenshots
 
 <table>
@@ -74,7 +68,7 @@ This [guy](https://github.com/willmcgugan). An ex web developer who somehow make
 </table>
 
 
-## Install
+## How?
 
 Toolong is currently best installed with [pipx](https://github.com/pypa/pipx).
 
@@ -99,7 +93,7 @@ tl
 
 In the near future there will be more install methods, and hopefully your favorite package manager.
 
-## How to use Toolong
+### Opening files
 
 To open a file with Toolong, add the file name(s) as arguments to the command:
 
@@ -116,6 +110,11 @@ tl access.log* --merge
 ```
 
 In the app, press ++f1++ for additional help.
+
+## Who?
+
+This [guy](https://github.com/willmcgugan). An ex web developer who somehow makes a living writing terminal apps.
+
 
 
 ## Videos
