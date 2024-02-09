@@ -101,7 +101,7 @@ It is snappy, straightforward to use, and does a lot of the *grunt work* for you
 </div>
 
 
-
+</details>
 
 ## How?
 
@@ -205,9 +205,7 @@ In the app, press **F1** for additional help.
 
 
     
-    
-
-</details>
+---
 
 ## History
 
