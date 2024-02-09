@@ -1,7 +1,7 @@
 
 
 <p align="center">
-    <img src="https://github.com/Textualize/tailless/assets/554369/44c960bc-1bdb-4ce0-9ff4-5cd3f1e33f3d" alt="A Kookaburra sitting on a scroll" width="300" >
+    <img src="https://github.com/Textualize/toolong/assets/554369/07f286c9-ac8d-44cd-905a-062a26060821" alt="A Kookaburra sitting on a scroll" width="300" >
 </p>
 
 
