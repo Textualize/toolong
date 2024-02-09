@@ -67,6 +67,42 @@ It is snappy, straightforward to use, and does a lot of the *grunt work* for you
 </table>
 
 
+### Videos
+
+<details>  
+  <summary> 🎬 Merging multiple (compressed) files </summary>
+&nbsp;
+
+<div align="center">
+  <video src="https://github.com/Textualize/tailless/assets/554369/efbbde11-bebf-44ff-8d2b-72a84b542b75" />
+</div>
+    
+
+</details>
+
+<details>  
+  <summary> 🎬 Viewing JSONL files </summary>
+&nbsp;
+
+<div align="center">
+  <video src="https://github.com/Textualize/tailless/assets/554369/38936600-34ee-4fe1-9fd3-b1581fc3fa37"  />
+</div>
+    
+    
+
+</details>
+
+<details>  
+  <summary> 🎬 Live Tailing a file </summary>
+&nbsp;
+
+<div align="center">
+  <video src="https://github.com/Textualize/tailless/assets/554369/7eea6a0e-b30d-4a94-bb45-c5bff0e329ca" />
+</div>
+
+
+
+
 ## How?
 
 Toolong is currently best installed with [pipx](https://github.com/pypa/pipx).
@@ -118,40 +154,6 @@ In the app, press ++f1++ for additional help.
 
 This [guy](https://github.com/willmcgugan). An ex web developer who somehow makes a living writing terminal apps.
 
-
-
-## Videos
-
-<details>  
-  <summary> 🎬 Merging multiple (compressed) files </summary>
-&nbsp;
-
-<div align="center">
-  <video src="https://github.com/Textualize/tailless/assets/554369/efbbde11-bebf-44ff-8d2b-72a84b542b75" />
-</div>
-    
-
-</details>
-
-<details>  
-  <summary> 🎬 Viewing JSONL files </summary>
-&nbsp;
-
-<div align="center">
-  <video src="https://github.com/Textualize/tailless/assets/554369/38936600-34ee-4fe1-9fd3-b1581fc3fa37"  />
-</div>
-    
-    
-
-</details>
-
-<details>  
-  <summary> 🎬 Live Tailing a file </summary>
-&nbsp;
-
-<div align="center">
-  <video src="https://github.com/Textualize/tailless/assets/554369/7eea6a0e-b30d-4a94-bb45-c5bff0e329ca" />
-</div>
 
 
 ## Installing
