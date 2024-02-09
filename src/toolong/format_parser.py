@@ -1,12 +1,12 @@
 from datetime import datetime
 import json
 import re
-from typing import TypeAlias
+from typing_extensions import TypeAlias
 
 from rich.highlighter import JSONHighlighter
 from rich.text import Text
 
-from .highlighter import LogHighlighter
+from toolong.highlighter import LogHighlighter
 from toolong import timestamps
 
 ParseResult: TypeAlias = tuple[datetime | None, str, Text]

@@ -4,19 +4,18 @@ import rich.repr
 
 from dataclasses import dataclass
 import os
-import time
 import platform
-from selectors import EVENT_READ    
-from threading import Event, Thread, Lock
-from typing import Callable, NamedTuple, TYPE_CHECKING
+from selectors import DefaultSelector, EVENT_READ
+from threading import Event, Thread
+from typing import Callable, TYPE_CHECKING
 
 
 if platform.system() == "Linux":
-    # DefaultSelector returns epoll on Linux, but that gives a permission error on Ubuntu    
+    # DefaultSelector returns epoll on Linux, but that gives a permission error on Ubuntu
     from selectors import PollSelector as DefaultSelector
 else:
     from selectors import DefaultSelector
-    
+
 
 if TYPE_CHECKING:
     from .log_file import LogFile
