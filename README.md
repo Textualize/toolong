@@ -1,5 +1,4 @@
 
-
 <p align="center">
     <img src="https://github.com/Textualize/toolong/assets/554369/07f286c9-ac8d-44cd-905a-062a26060821" alt="A Kookaburra sitting on a scroll" width="300" >
 </p>
@@ -25,7 +24,7 @@ A terminal application to view, tail, merge, and search log files (plus JSONL).
 
 ## What?
 
-<img width="40%" align="right" alt="Screenshot 2024-02-08 at 13 47 28" src="https://github.com/Textualize/tailless/assets/554369/e4b9e41b-2a42-4cef-b47c-e58a9e4db44a">
+<img width="40%" align="right" alt="Screenshot 2024-02-08 at 13 47 28" src="https://github.com/Textualize/toolong/assets/554369/1595e8e0-f5bf-428b-9b84-f0b5c7f506a1">
 
 
 - Live tailing of log files.
@@ -51,18 +50,18 @@ It is snappy, straightforward to use, and does a lot of the *grunt work* for you
 <table>
     <tr>
         <td>
-            <img width="100%" alt="Screenshot 2024-02-08 at 13 47 28" src="https://github.com/Textualize/tailless/assets/554369/e4b9e41b-2a42-4cef-b47c-e58a9e4db44a">
+            <img width="100%" alt="Screenshot 2024-02-08 at 13 47 28" src="https://github.com/Textualize/toolong/assets/554369/1595e8e0-f5bf-428b-9b84-f0b5c7f506a1">
         </td>
         <td>
-            <img width="100%" alt="Screenshot 2024-02-08 at 13 48 04" src="https://github.com/Textualize/tailless/assets/554369/1a5c3dff-e93c-4746-99d4-2e58f6b44b19">
+            <img width="100%" alt="Screenshot 2024-02-08 at 13 48 04" src="https://github.com/Textualize/toolong/assets/554369/c95f0cf4-426d-4d25-b270-eec0f4cfc86f">
         </td>
     </tr>
     <tr>
         <td>
-            <img width="100%" alt="Screenshot 2024-02-08 at 13 49 22" src="https://github.com/Textualize/tailless/assets/554369/e130a550-579a-4bd1-9281-1cef520634f8">
+            <img width="100%" alt="Screenshot 2024-02-08 at 13 49 22" src="https://github.com/Textualize/toolong/assets/554369/45e7509c-ffed-44cc-b3e6-f2a7a276bbe5">
         </td>
         <td>
-            <img width="100%" alt="Screenshot 2024-02-08 at 13 50 04" src="https://github.com/Textualize/tailless/assets/554369/5e620070-4eb8-49e0-9dfa-7ac335b18a62">
+            <img width="100%" alt="Screenshot 2024-02-08 at 13 50 04" src="https://github.com/Textualize/toolong/assets/554369/6840b626-539f-4ef9-88d9-25e0b96036b7">
         </td>
     </tr>
 </table>
