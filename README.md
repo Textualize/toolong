@@ -112,7 +112,7 @@ If you add multiple filenames, they will open in tabs.
 Added the `--merge` switch to open multiple files and combine them in to a single view:
 
 ```bash
-tl web.log*
+tl access.log* --merge
 ```
 
 In the app, press ++f1++ for additional help.
