@@ -197,7 +197,8 @@ class LogFooter(Widget):
                             binding.description,
                         )
                         for binding in bindings
-                        if not (binding.action == "toggle_tail" and self.can_tail)
+                        if binding.action != "toggle_tail"
+                        or (binding.action == "toggle_tail" and self.can_tail)
                     ]
                 )
 
@@ -219,7 +220,7 @@ class LogFooter(Widget):
         self.query_one(".meta", Label).update(Text(meta_line))
 
     def watch_tail(self, tail: bool) -> None:
-        self.query(".tail").set_class(tail, "on")
+        self.query(".tail").set_class(tail and self.can_tail, "on")
 
     async def watch_can_tail(self, can_tail: bool) -> None:
         await self.mount_keys()
@@ -275,7 +276,8 @@ class LogView(Horizontal):
         self.file_paths = file_paths
         self.watcher = watcher
         super().__init__()
-        self.can_tail = can_tail
+        # Need a better solution for this
+        self.call_later(setattr, self, "can_tail", can_tail)
 
     def compose(self) -> ComposeResult:
         yield (

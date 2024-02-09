@@ -29,6 +29,9 @@ class PendingLines(Message):
 
     count: int
 
+    def can_replace(self, message: Message) -> bool:
+        return isinstance(message, PendingLines)
+
 
 @rich.repr.auto
 @dataclass

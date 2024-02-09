@@ -42,7 +42,7 @@ class LogScreen(Screen):
     def compose(self) -> ComposeResult:
         assert isinstance(self.app, UI)
         with TabbedContent():
-            if self.app.merge:
+            if self.app.merge and len(self.app.file_paths) > 1:
                 tab_name = " + ".join(Path(path).name for path in self.app.file_paths)
                 with TabPane(tab_name):
                     yield Lazy(

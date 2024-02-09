@@ -875,6 +875,8 @@ class LogLines(ScrollView, inherit_bindings=False):
         if self.tail:
             if self.pointer_line is not None and pointer_distance_from_end is not None:
                 self.pointer_line = self.virtual_size.height - pointer_distance_from_end
+            for offset, _ in enumerate(event.breaks, 1):
+                self.get_text(self.line_count - offset, abbreviate=True)
             self.scroll_to(y=self.max_scroll_y, animate=False, force=True)
         else:
             self.scroll_to(

@@ -9,15 +9,17 @@ from pathlib import Path
 from typing import IO, Iterable
 from threading import Event
 
+import rich.repr
 
-from .format_parser import FormatParser, ParseResult
-from .timestamps import TimestampScanner
+from toolong.format_parser import FormatParser, ParseResult
+from toolong.timestamps import TimestampScanner
 
 
 class LogError(Exception):
     """An error related to logs."""
 
 
+@rich.repr.auto(angular=True)
 class LogFile:
     """A single log file."""
 
@@ -29,6 +31,10 @@ class LogFile:
         self.can_tail = False
         self.timestamp_scanner = TimestampScanner()
         self.format_parser = FormatParser()
+
+    def __rich_repr__(self) -> rich.repr.Result:
+        yield self.name
+        yield "size", self.size
 
     def is_open(self) -> bool:
         return self.file is not None
@@ -159,11 +165,10 @@ class LogFile:
     def scan_timestamps(
         self, batch_time: float = 0.25
     ) -> Iterable[list[tuple[int, int, float]]]:
-        fileno = self.fileno
         size = self.size
         if not size:
             return
-        log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
+        log_mmap = mmap.mmap(self.fileno, size, prot=mmap.PROT_READ)
 
         monotonic = time.monotonic
         scan_time = monotonic()
@@ -176,9 +181,8 @@ class LogFile:
         get_length = results.__len__
         while line_bytes := log_mmap.readline():
             line = line_bytes.decode("utf-8", errors="replace")
-            if line.strip():
-                timestamp = scan(line) or timestamp
-                append((line_no, position, timestamp.timestamp()))
+            timestamp = scan(line) or timestamp
+            append((line_no, position, timestamp.timestamp()))
             position += len(line_bytes)
             line_no += 1
             if (
