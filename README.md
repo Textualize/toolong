@@ -74,6 +74,51 @@ This [guy](https://github.com/willmcgugan). An ex web developer who somehow make
 </table>
 
 
+## Installing
+
+Toolong is currently best installed with [pipx](https://github.com/pypa/pipx).
+
+```bash
+pipx install toolong
+```
+
+You could also install Toolong with Pip:
+
+```bash
+pip install toolong
+```
+
+> [!NOTE] 
+> If you use pip, you should ideally create a virtual environment to avoid potential dependancy conflicts.
+
+However you install Toolong, the `tl` command will be added to your path.
+Run it to test instalation:
+
+```bash
+tl
+```
+
+In the near future there will be more installation methods, and hopefully your favorite package manager.
+
+## How to use Toolong
+
+To open a file with Toolong, add the file name(s) as arguments to the command:
+
+```bash
+tl mylogfile.log
+```
+
+If you add multiple filenames, they will open in tabs.
+
+Added the `--merge` switch to open multiple files and combine them in to a single view:
+
+```bash
+tl web.log*
+```
+
+In the app, press ++f1++ for additional help.
+
+
 ## Videos
 
 <details>  
