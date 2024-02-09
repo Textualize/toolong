@@ -23,7 +23,7 @@ A terminal application to view, tail, merge, and search log files (plus JSONL).
 </details>
 
 
-## Features
+## What?
 
 <img width="40%" align="right" alt="Screenshot 2024-02-08 at 13 47 28" src="https://github.com/Textualize/tailless/assets/554369/e4b9e41b-2a42-4cef-b47c-e58a9e4db44a">
 
@@ -74,7 +74,7 @@ This [guy](https://github.com/willmcgugan). An ex web developer who somehow make
 </table>
 
 
-## Installing
+## Install
 
 Toolong is currently best installed with [pipx](https://github.com/pypa/pipx).
 
