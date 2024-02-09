@@ -46,7 +46,7 @@ I built `toolong` to be the tool I would have wanted back then.
 It is snappy, straightforward to use, and does a lot of the *grunt work* for you.
 
 
-## Screenshots
+### Screenshots
 
 <table>
     <tr>
