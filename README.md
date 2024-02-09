@@ -93,6 +93,10 @@ tl
 
 In the near future there will be more install methods, and hopefully your favorite package manager.
 
+### Compatibility
+
+Toolong works on Linux and macOS. I don't think it will work on Windows yet, but it *could*. Let me know if you would like Windows support.
+
 ### Opening files
 
 To open a file with Toolong, add the file name(s) as arguments to the command:
