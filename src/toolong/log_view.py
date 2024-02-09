@@ -80,13 +80,13 @@ class InfoOverlay(Widget):
             yield Label("")
 
     def watch_message(self, message: str) -> None:
-        self.display = bool(message)
+        self.display = bool(message.strip())
         self.query_one(Label).update(message)
 
     def watch_tail(self, tail: bool) -> None:
         if not tail:
             self.message = ""
-        self.display = bool(self.message and not tail)
+        self.display = bool(self.message.strip() and not tail)
 
     def on_click(self) -> None:
         self.post_message(TailFile())
@@ -375,6 +375,8 @@ class LogView(Horizontal):
 
     @on(PendingLines)
     def on_pending_lines(self, event: PendingLines) -> None:
+        if self.app._exit:
+            return
         event.stop()
         self.query_one(InfoOverlay).message = f"+{event.count:,} lines"
 

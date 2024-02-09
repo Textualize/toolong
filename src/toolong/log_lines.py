@@ -694,6 +694,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         )
 
     def watch_show_find(self, show_find: bool) -> None:
+        self.clear_caches()
         if not show_find:
             self.pointer_line = None
 
@@ -860,8 +861,6 @@ class LogLines(ScrollView, inherit_bindings=False):
         if not event.tail:
             line_breaks.sort()
 
-        distance_from_end = self.virtual_size.height - self.scroll_offset.y
-
         pointer_distance_from_end = (
             None
             if self.pointer_line is None
@@ -878,12 +877,6 @@ class LogLines(ScrollView, inherit_bindings=False):
             for offset, _ in enumerate(event.breaks, 1):
                 self.get_text(self.line_count - offset, abbreviate=True)
             self.scroll_to(y=self.max_scroll_y, animate=False, force=True)
-        else:
-            self.scroll_to(
-                y=self.virtual_size.height - distance_from_end,
-                animate=False,
-                force=True,
-            )
 
     def watch_scroll_y(self, old_value: float, new_value: float) -> None:
         self.post_message(PointerMoved(self.pointer_line))
