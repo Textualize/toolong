@@ -6,6 +6,10 @@ authors = ["Will McGugan <will@textualize.io>"]
 license = "MIT"
 readme = "README.md"
 
+homepage = "https://github.com/textualize/toolong"
+repository = "https://github.com/textualize/toolong"
+documentation = "https://github.com/textualize/toolong"
+
 [tool.poetry.dependencies]
 python = "^3.8"
 click = "^8.1.7"
