@@ -91,14 +91,13 @@ pip install toolong
 > [!NOTE] 
 > If you use pip, you should ideally create a virtual environment to avoid potential dependancy conflicts.
 
-However you install Toolong, the `tl` command will be added to your path.
-Run it to test instalation:
+However you install Toolong, the `tl` command will be added to your path:
 
 ```bash
 tl
 ```
 
-In the near future there will be more installation methods, and hopefully your favorite package manager.
+In the near future there will be more install methods, and hopefully your favorite package manager.
 
 ## How to use Toolong
 
