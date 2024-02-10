@@ -84,3 +84,8 @@ class PointerMoved(Message):
 
     def can_replace(self, message: Message) -> bool:
         return isinstance(message, PointerMoved)
+
+
+@dataclass
+class MinimapUpdate(Message):
+    data: list[int]

@@ -40,13 +40,16 @@ class RegexLogFormat(LogFormat):
         _, timestamp = timestamps.parse(groups["date"].strip("[]"))
 
         text = self.highlighter(line)
-        if status := groups.get("status", None):
-            text.highlight_words(
-                [f" {status} "], "bold red" if status.startswith("4") else "magenta"
-            )
+        if status := groups.get("status", "").strip():
+            if status.startswith("4"):
+                text.highlight_words([f" {status} "], "bold #ffa62b")
+            elif status.startswith("5"):
+                text.highlight_words([f" {status} "], "bold white on red")
+            else:
+                text.highlight_words([f" {status} "], "bold magenta")
         text.highlight_words(self.HIGHLIGHT_WORDS, "bold yellow")
 
-        return timestamp, line, text
+        return timestamp, line, text, (status.startswith("4"))
 
 
 class CommonLogFormat(RegexLogFormat):
@@ -90,7 +93,7 @@ FORMATS = [
     JSONLogFormat(),
     CommonLogFormat(),
     CombinedLogFormat(),
-    DefaultLogFormat(),
+    # DefaultLogFormat(),
 ]
 
 
@@ -109,4 +112,4 @@ class FormatParser:
                     del self._formats[index : index + 1]
                     self._formats.insert(0, format)
                 return parse_result
-        return None, "", Text()
+        return None, "", Text(), False

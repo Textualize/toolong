@@ -29,6 +29,7 @@ from toolong.messages import (
 )
 from toolong.find_dialog import FindDialog
 from toolong.line_panel import LinePanel
+from toolong.mini_map import Minimap
 from toolong.watcher import Watcher
 from toolong.log_lines import LogLines
 
@@ -252,6 +253,16 @@ class LogView(Horizontal):
             width: 50%;
             display: none;            
         }
+        #log-container {
+            border: heavy transparent;
+            &:focus-within {
+                border: heavy $accent;
+            }
+            Minimap {
+                margin-left: 1;
+                padding: 0 0 1 0;
+            }
+        }
     }
     """
 
@@ -280,14 +291,16 @@ class LogView(Horizontal):
         self.call_later(setattr, self, "can_tail", can_tail)
 
     def compose(self) -> ComposeResult:
-        yield (
-            log_lines := LogLines(self.watcher, self.file_paths).data_bind(
+        with Horizontal(id="log-container"):
+            log_lines = LogLines(self.watcher, self.file_paths).data_bind(
                 LogView.tail,
                 LogView.show_line_numbers,
                 LogView.show_find,
                 LogView.can_tail,
             )
-        )
+            yield log_lines
+            yield Minimap(log_lines)
+
         yield LinePanel()
         yield FindDialog(log_lines._suggester)
         yield InfoOverlay().data_bind(LogView.tail)
@@ -398,6 +411,7 @@ class LogView(Horizontal):
 
         footer = self.query_one(LogFooter)
         footer.call_after_refresh(footer.mount_keys)
+        self.query_one(Minimap).refresh_map(log_lines._line_count)
 
     @on(events.DescendantFocus)
     @on(events.DescendantBlur)
