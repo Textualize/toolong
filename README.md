@@ -29,7 +29,7 @@ A terminal application to view, tail, merge, and search log files (plus JSONL).
 
 - Live tailing of log files.
 - Syntax highlights common web server log formats.
-- Files don't need to be loaded in to memory, which means it is as fast to open a multiple-gigabyte files as it is to open tiny text file.
+- As fast to open a multiple-gigabyte file as it is to open a tiny text file.
 - Support for JSONL files: lines are pretty printed.
 - Opens .bz and .bz2 files automatically.
 - Merges log files by auto detecting timestamps.
@@ -148,7 +148,7 @@ Added the `--merge` switch to open multiple files and combine them in to a singl
 tl access.log* --merge
 ```
 
-In the app, press ++f1++ for additional help.
+In the app, press **f1** for additional help.
 
 ## Who?
 
