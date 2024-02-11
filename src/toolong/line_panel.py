@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import datetime
 import json
 
@@ -35,7 +36,7 @@ class LineDisplay(Widget):
 
     def compose(self) -> ComposeResult:
         try:
-            data = json.loads(self.line)
+            json.loads(self.line)
         except Exception:
             yield Label(self.text)
         else:
