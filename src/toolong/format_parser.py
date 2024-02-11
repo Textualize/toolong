@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import datetime
 import json
 import re
@@ -8,8 +9,10 @@ from rich.text import Text
 
 from toolong.highlighter import LogHighlighter
 from toolong import timestamps
+from typing import Optional
 
-ParseResult: TypeAlias = tuple[datetime | None, str, Text]
+
+ParseResult: TypeAlias = tuple[Optional[datetime], str, Text]
 
 
 class LogFormat:

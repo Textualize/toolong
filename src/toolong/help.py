@@ -156,7 +156,7 @@ class HelpScreen(ModalScreen):
 
     BINDINGS = [
         ("escape", "dismiss"),
-        ("a", f"go('https://www.willmcgugan.com')", "Author"),
+        ("a", "go('https://www.willmcgugan.com')", "Author"),
         ("t", f"go({TEXTUAL_LINK!r})", "Textual"),
         ("r", f"go({REPOSITORY_LINK!r})", "Repository"),
         ("l", f"go({LOGMERGER_LINK!r})", "Logmerger"),

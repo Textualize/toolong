@@ -14,7 +14,6 @@ from textual import events
 from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Label
-from textual.widget import Widget
 
 
 from toolong.scan_progress_bar import ScanProgressBar
