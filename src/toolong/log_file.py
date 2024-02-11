@@ -139,6 +139,14 @@ class LogFile:
     def scan_line_breaks(
         self, batch_time: float = 0.25
     ) -> Iterable[tuple[int, list[int]]]:
+        """Scan the file for line breaks.
+
+        Args:
+            batch_time: Time to group the batches.
+
+        Returns:
+            An iterable of tuples, containing the scan position and a list of offsets of new lines.
+        """
         fileno = self.fileno
         size = self.size
         if not size:
