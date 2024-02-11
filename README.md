@@ -145,7 +145,7 @@ tl mylogfile.log
 
 If you add multiple filenames, they will open in tabs.
 
-Added the `--merge` switch to open multiple files and combine them in to a single view:
+Add the `--merge` switch to open multiple files and combine them in to a single view:
 
 ```bash
 tl access.log* --merge
