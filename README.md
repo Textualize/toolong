@@ -21,6 +21,9 @@ A terminal application to view, tail, merge, and search log files (plus JSONL).
 
 </details>
 
+## Keep calm and log files
+
+See [Toolong on Calmcode.io](https://calmcode.io/shorts/toolong.py) for a calming introduction to Toolong.
 
 ## What?
 
