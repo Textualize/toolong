@@ -40,7 +40,7 @@ import mmap
 import re
 import time
 from datetime import datetime, timedelta
-from typing import Iterable, Literal, Mapping
+from typing import Iterable, Literal, Mapping, Set, Tuple, Dict, List
 
 SPLIT_REGEX = r"[\s/\[\]\(\)\"\/]"
 
@@ -65,9 +65,9 @@ class LineReader(Thread):
 
     def __init__(self, log_lines: LogLines) -> None:
         self.log_lines = log_lines
-        self.queue: Queue[tuple[LogFile | None, int, int, int]] = Queue(maxsize=1000)
+        self.queue: Queue[Tuple[LogFile | None, int, int, int]] = Queue(maxsize=1000)
         self.exit_event = Event()
-        self.pending: set[tuple[LogFile | None, int, int, int]] = set()
+        self.pending: Set[Tuple[LogFile | None, int, int, int]] = set()
         super().__init__()
 
     def request_line(self, log_file: LogFile, index: int, start: int, end: int) -> None:
@@ -203,16 +203,16 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.file_paths = file_paths
         self.log_files = [LogFile(path) for path in file_paths]
         self._render_line_cache: LRUCache[
-            tuple[LogFile, int, int, bool, str], Strip
+            Tuple[LogFile, int, int, bool, str], Strip
         ] = LRUCache(maxsize=1000)
         self._max_width = 0
         self._search_index: LRUCache[str, str] = LRUCache(maxsize=10000)
         self._suggester = SearchSuggester(self._search_index)
-        self.icons: dict[int, str] = {}
-        self._line_breaks: dict[LogFile, list[int]] = {}
-        self._line_cache: LRUCache[tuple[LogFile, int, int], str] = LRUCache(10000)
+        self.icons: Dict[int, str] = {}
+        self._line_breaks: Dict[LogFile, List[int]] = {}
+        self._line_cache: LRUCache[Tuple[LogFile, int, int], str] = LRUCache(10000)
         self._text_cache: LRUCache[
-            tuple[LogFile, int, int, bool], tuple[str, Text, datetime | None]
+            Tuple[LogFile, int, int, bool], Tuple[str, Text, datetime | None]
         ] = LRUCache(1000)
         self.initial_scan_worker: Worker | None = None
         self._line_count = 0
@@ -220,7 +220,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         self._scan_start = 0
         self._gutter_width = 0
         self._line_reader = LineReader(self)
-        self._merge_lines: list[tuple[float, int, LogFile]] | None = None
+        self._merge_lines: List[Tuple[float, int, LogFile]] | None = None
 
     @property
     def log_file(self) -> LogFile:
@@ -267,7 +267,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.initial_scan_worker = self.run_scan()
 
     def start_tail(self) -> None:
-        def size_changed(size: int, breaks: list[int]) -> None:
+        def size_changed(size: int, breaks: List[int]) -> None:
             """Callback when the file changes size."""
             if self.message_queue_size > 10:
                 while self.message_queue_size > 2:
@@ -336,7 +336,7 @@ class LogLines(ScrollView, inherit_bindings=False):
     def merge_log_files(self) -> None:
         worker = get_current_worker()
         self._merge_lines = []
-        merge_lines: list[tuple[float, int, LogFile]] = self._merge_lines
+        merge_lines: List[Tuple[float, int, LogFile]] = self._merge_lines
         append_meta = merge_lines.append
 
         for log_file in self.log_files:
@@ -378,7 +378,7 @@ class LogLines(ScrollView, inherit_bindings=False):
     @classmethod
     def _scan_file(
         cls, fileno: int, size: int, batch_time: float = 0.25
-    ) -> Iterable[tuple[int, list[int]]]:
+    ) -> Iterable[Tuple[int, List[int]]]:
         """Find line breaks in a file.
 
         Yields lists of offsets.
@@ -386,7 +386,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
         rfind = log_mmap.rfind
         position = size
-        batch: list[int] = []
+        batch: List[int] = []
         append = batch.append
         get_length = batch.__len__
         monotonic = time.monotonic
@@ -399,7 +399,7 @@ class LogLines(ScrollView, inherit_bindings=False):
                 batch = []
         yield (0, batch)
 
-    def get_log_file_from_index(self, index: int) -> tuple[LogFile, int]:
+    def get_log_file_from_index(self, index: int) -> Tuple[LogFile, int]:
         if self._merge_lines is not None:
             try:
                 _, index, log_file = self._merge_lines[index]
@@ -408,7 +408,7 @@ class LogLines(ScrollView, inherit_bindings=False):
             return log_file, index
         return self.log_files[0], index
 
-    def index_to_span(self, index: int) -> tuple[LogFile, int, int]:
+    def index_to_span(self, index: int) -> Tuple[LogFile, int, int]:
         log_file, index = self.get_log_file_from_index(index)
         line_breaks = self._line_breaks.setdefault(log_file, [])
         if not line_breaks:
@@ -462,7 +462,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         line_index: int,
         abbreviate: bool = False,
         block: bool = False,
-    ) -> tuple[str, Text, datetime | None]:
+    ) -> Tuple[str, Text, datetime | None]:
         log_file, start, end = self.index_to_span(line_index)
         cache_key = (log_file, start, end, abbreviate)
         try:
@@ -507,7 +507,7 @@ class LogLines(ScrollView, inherit_bindings=False):
             self.line_count,
         )
 
-    def render_lines(self, crop: Region) -> list[Strip]:
+    def render_lines(self, crop: Region) -> List[Strip]:
         self.virtual_size = Size(
             self._max_width
             + (self.gutter_width if self.show_gutter or self.show_line_numbers else 0),

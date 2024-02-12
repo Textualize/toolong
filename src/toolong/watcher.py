@@ -7,7 +7,7 @@ import os
 import platform
 from selectors import DefaultSelector, EVENT_READ
 from threading import Event, Thread
-from typing import Callable, TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING, List
 
 
 if platform.system() == "Linux":
@@ -27,11 +27,11 @@ class WatchedFile:
     """A currently watched file."""
 
     log_file: LogFile
-    callback: Callable[[int, list[int]], None]
+    callback: Callable[[int, List[int]], None]
     error_callback: Callable[[Exception], None]
 
 
-def scan_chunk(chunk: bytes, position: int) -> list[int]:
+def scan_chunk(chunk: bytes, position: int) -> List[int]:
     """Scan line breaks in a binary chunk,
 
     Args:
@@ -41,7 +41,7 @@ def scan_chunk(chunk: bytes, position: int) -> list[int]:
     Returns:
         A list of indices with new lines.
     """
-    breaks: list[int] = []
+    breaks: List[int] = []
     offset = 0
     append = breaks.append
     while (offset := chunk.find(b"\n", offset)) != -1:
@@ -66,7 +66,7 @@ class Watcher(Thread):
     def add(
         self,
         log_file: LogFile,
-        callback: Callable[[int, list[int]], None],
+        callback: Callable[[int, List[int]], None],
         error_callback: Callable[[Exception], None],
     ) -> None:
         """Add a file to the watcher."""

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 import re
-from typing import Callable, NamedTuple
+from typing import Callable, NamedTuple, Tuple
 
 
 class TimestampFormat(NamedTuple):
@@ -95,7 +95,7 @@ TIMESTAMP_FORMATS = [
 ]
 
 
-def parse(line: str) -> tuple[TimestampFormat | None, datetime | None]:
+def parse(line: str) -> Tuple[TimestampFormat | None, datetime | None]:
     """Attempt to parse a timestamp."""
     for timestamp in TIMESTAMP_FORMATS:
         regex, parse_callable = timestamp

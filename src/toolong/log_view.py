@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from asyncio import Lock
 from datetime import datetime
+from typing import List
 
 from rich.text import Text
 
@@ -207,7 +208,7 @@ class LogFooter(Widget):
         self.call_after_refresh(self.mount_keys)
 
     def update_meta(self) -> None:
-        meta: list[str] = []
+        meta: List[str] = []
         if self.filename:
             meta.append(self.filename)
         if self.timestamp is not None:
@@ -270,7 +271,7 @@ class LogView(Horizontal):
     can_tail: reactive[bool] = reactive(True)
 
     def __init__(
-        self, file_paths: list[str], watcher: Watcher, can_tail: bool = True
+        self, file_paths: List[str], watcher: Watcher, can_tail: bool = True
     ) -> None:
         self.file_paths = file_paths
         self.watcher = watcher

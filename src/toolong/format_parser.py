@@ -9,10 +9,10 @@ from rich.text import Text
 
 from toolong.highlighter import LogHighlighter
 from toolong import timestamps
-from typing import Optional
+from typing import Optional, Tuple
 
 
-ParseResult: TypeAlias = tuple[Optional[datetime], str, Text]
+ParseResult: TypeAlias = Tuple[Optional[datetime], str, Text]
 
 
 class LogFormat:

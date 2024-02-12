@@ -6,7 +6,7 @@ import mmap
 import mimetypes
 import time
 from pathlib import Path
-from typing import IO, Iterable
+from typing import IO, Iterable, Tuple, List
 from threading import Event
 
 import rich.repr
@@ -138,7 +138,7 @@ class LogFile:
 
     def scan_line_breaks(
         self, batch_time: float = 0.25
-    ) -> Iterable[tuple[int, list[int]]]:
+    ) -> Iterable[Tuple[int, List[int]]]:
         """Scan the file for line breaks.
 
         Args:
@@ -154,7 +154,7 @@ class LogFile:
         log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
         rfind = log_mmap.rfind
         position = size
-        batch: list[int] = []
+        batch: List[int] = []
         append = batch.append
         get_length = batch.__len__
         monotonic = time.monotonic
@@ -172,7 +172,7 @@ class LogFile:
 
     def scan_timestamps(
         self, batch_time: float = 0.25
-    ) -> Iterable[list[tuple[int, int, float]]]:
+    ) -> Iterable[List[Tuple[int, int, float]]]:
         size = self.size
         if not size:
             return
@@ -184,7 +184,7 @@ class LogFile:
         line_no = 0
         timestamp = self.get_create_time() or datetime.utcnow()
         position = 0
-        results: list[tuple[int, int, float]] = []
+        results: List[Tuple[int, int, float]] = []
         append = results.append
         get_length = results.__len__
         while line_bytes := log_mmap.readline():

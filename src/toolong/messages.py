@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from typing import List
 
 import rich.repr
 from textual.message import Message
@@ -40,7 +41,7 @@ class NewBreaks(Message):
     """New line break to add."""
 
     log_file: LogFile
-    breaks: list[int]
+    breaks: List[int]
     scanned_size: int = 0
     tail: bool = False
 

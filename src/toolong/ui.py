@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List
 
 import locale
 
@@ -78,7 +79,7 @@ class UI(App):
     """The top level App object."""
 
     @classmethod
-    def sort_paths(cls, paths: list[str]) -> list[str]:
+    def sort_paths(cls, paths: List[str]) -> List[str]:
         def key(path) -> list:
             return [
                 int(token) if token.isdigit() else token.lower()
@@ -87,7 +88,7 @@ class UI(App):
 
         return sorted(paths, key=key)
 
-    def __init__(self, file_paths: list[str], merge: bool = False) -> None:
+    def __init__(self, file_paths: List[str], merge: bool = False) -> None:
         self.file_paths = self.sort_paths(file_paths)
         self.merge = merge
         self.watcher = Watcher()
