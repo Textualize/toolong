@@ -12,7 +12,7 @@ from toolong import timestamps
 from typing import Optional
 
 
-ParseResult: TypeAlias = tuple[Optional[datetime], str, Text]
+ParseResult: TypeAlias = "tuple[Optional[datetime], str, Text]"
 
 
 class LogFormat:
