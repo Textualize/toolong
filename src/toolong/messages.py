@@ -19,7 +19,7 @@ class SizeChanged(Message, bubble=False):
 
 @dataclass
 class FileError(Message, bubble=False):
-    """An error occured watching a file."""
+    """An error occurred watching a file."""
 
     error: Exception
 
