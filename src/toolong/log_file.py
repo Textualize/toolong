@@ -76,6 +76,9 @@ class LogFile:
 
         # Open uncompressed file
         self.file = open(self.path, "rb", buffering=0)
+        import os
+
+        os.set_blocking(self.file.fileno(), False)
         self.file.seek(0, os.SEEK_END)
         self.size = self.file.tell()
         self.can_tail = True

@@ -12,7 +12,7 @@ from typing import Callable, TYPE_CHECKING
 
 if platform.system() == "Linux":
     # DefaultSelector returns epoll on Linux, but that gives a permission error on Ubuntu
-    from selectors import PollSelector as DefaultSelector
+    from selectors import SelectSelector as DefaultSelector
 else:
     from selectors import DefaultSelector
 
@@ -94,7 +94,7 @@ class Watcher(Thread):
 
                     try:
                         position = os.lseek(fileno, 0, os.SEEK_CUR)
-                        chunk = watched_file.log_file.read(chunk_size)
+                        chunk = os.read(fileno, chunk_size)
                         if chunk:
                             breaks = scan_chunk(chunk, position)
                             watched_file.callback(position + len(chunk), breaks)
