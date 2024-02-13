@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from queue import Empty, Queue
-from threading import Event, Thread
+from threading import Event, Lock, Thread
 
 from textual.message import Message
 from textual.suggester import Suggester
@@ -46,7 +46,7 @@ SPLIT_REGEX = r"[\s/\[\]\(\)\"\/]"
 
 
 @dataclass
-class LineRead(Message):
+class LineRead(Message, verbose=True):
     """A line has been read from the file."""
 
     index: int
@@ -86,7 +86,7 @@ class LineReader(Thread):
         log_lines = self.log_lines
         while not self.exit_event.is_set():
             try:
-                request = self.queue.get(timeout=0.2)
+                request = self.queue.get(timeout=1)
             except Empty:
                 continue
             else:
@@ -96,13 +96,7 @@ class LineReader(Thread):
                 if self.exit_event.is_set() or log_file is None:
                     break
                 log_lines.post_message(
-                    LineRead(
-                        index,
-                        log_file,
-                        start,
-                        end,
-                        log_file.get_line(start, end),
-                    )
+                    LineRead(index, log_file, start, end, log_file.get_line(start, end))
                 )
 
 
@@ -150,7 +144,7 @@ class LogLines(ScrollView, inherit_bindings=False):
     LogLines {
         scrollbar-gutter: stable;
         overflow: scroll;
-        border: heavy transparent;        
+        # border: heavy transparent;        
         .loglines--filter-highlight {
             background: $secondary;
             color: auto;
@@ -158,9 +152,9 @@ class LogLines(ScrollView, inherit_bindings=False):
         .loglines--pointer-highlight {
             background: $primary;
         }
-        &:focus {
-            border: heavy $accent;
-        }
+        # &:focus {
+        #     border: heavy $accent;
+        # }
 
         border-subtitle-color: $success;
         border-subtitle-align: center;        
@@ -221,6 +215,8 @@ class LogLines(ScrollView, inherit_bindings=False):
         self._gutter_width = 0
         self._line_reader = LineReader(self)
         self._merge_lines: list[tuple[float, int, LogFile]] | None = None
+        self._errors: list[int] = []
+        self._lock = Lock()
 
     @property
     def log_file(self) -> LogFile:
@@ -247,6 +243,17 @@ class LogLines(ScrollView, inherit_bindings=False):
     def clear_caches(self) -> None:
         self._line_cache.clear()
         self._text_cache.clear()
+
+    def add_error(self, offset: int) -> None:
+        """Add error line
+
+        Args:
+            offset: Offset within the file.
+        """
+        error_offset = offset // 8
+        if error_offset > len(self._errors):
+            self._errors.extend([0] * 100)
+        self._errors[error_offset] += 1
 
     def notify_style_update(self) -> None:
         self.clear_caches()
@@ -409,20 +416,21 @@ class LogLines(ScrollView, inherit_bindings=False):
         return self.log_files[0], index
 
     def index_to_span(self, index: int) -> tuple[LogFile, int, int]:
-        log_file, index = self.get_log_file_from_index(index)
-        line_breaks = self._line_breaks.setdefault(log_file, [])
-        if not line_breaks:
-            return (log_file, self._scan_start, self._scan_start)
-        index = clamp(index, 0, len(line_breaks))
-        if index == 0:
-            return (log_file, self._scan_start, line_breaks[0])
-        start = line_breaks[index - 1]
-        end = (
-            line_breaks[index]
-            if index < len(line_breaks)
-            else max(0, self._scanned_size - 1)
-        )
-        return (log_file, start, end)
+        with self._lock:
+            log_file, index = self.get_log_file_from_index(index)
+            line_breaks = self._line_breaks.setdefault(log_file, [])
+            if not line_breaks:
+                return (log_file, self._scan_start, self._scan_start)
+            index = clamp(index, 0, len(line_breaks))
+            if index == 0:
+                return (log_file, self._scan_start, line_breaks[0])
+            start = line_breaks[index - 1]
+            end = (
+                line_breaks[index]
+                if index < len(line_breaks)
+                else max(0, self._scanned_size - 1)
+            )
+            return (log_file, start, end)
 
     def get_line_from_index_blocking(self, index: int) -> str:
         log_file, start, end = self.index_to_span(index)
@@ -476,7 +484,7 @@ class LogLines(ScrollView, inherit_bindings=False):
             if new_line is None:
                 return "", Text(""), None
             line = new_line
-            timestamp, line, text = log_file.parse(line)
+            timestamp, line, text, error = log_file.parse(line)
             if abbreviate and len(text) > MAX_LINE_LENGTH:
                 text = text[:MAX_LINE_LENGTH] + "…"
             self._text_cache[cache_key] = (line, text, timestamp)
