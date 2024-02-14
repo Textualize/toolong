@@ -11,7 +11,7 @@ from textual.screen import Screen
 from textual.widgets import TabbedContent, TabPane
 
 from toolong.log_view import LogView
-from toolong.watcher import Watcher
+from toolong.watcher import get_watcher
 from toolong.help import HelpScreen
 
 
@@ -90,7 +90,7 @@ class UI(App):
     def __init__(self, file_paths: list[str], merge: bool = False) -> None:
         self.file_paths = self.sort_paths(file_paths)
         self.merge = merge
-        self.watcher = Watcher()
+        self.watcher = get_watcher()
         super().__init__()
 
     async def on_mount(self) -> None:

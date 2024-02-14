@@ -28,7 +28,7 @@ from toolong.messages import (
 )
 from toolong.find_dialog import FindDialog
 from toolong.line_panel import LinePanel
-from toolong.watcher import Watcher
+from toolong.watcher import get_watcher, WatcherBase
 from toolong.log_lines import LogLines
 
 
@@ -270,7 +270,7 @@ class LogView(Horizontal):
     can_tail: reactive[bool] = reactive(True)
 
     def __init__(
-        self, file_paths: list[str], watcher: Watcher, can_tail: bool = True
+        self, file_paths: list[str], watcher: WatcherBase, can_tail: bool = True
     ) -> None:
         self.file_paths = file_paths
         self.watcher = watcher

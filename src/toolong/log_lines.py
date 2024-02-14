@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from queue import Empty, Queue
-from threading import Event, Thread
+from threading import Event, RLock, Thread
 
 from textual.message import Message
 from textual.suggester import Suggester
@@ -19,7 +19,7 @@ from toolong.messages import (
     ScanProgress,
     TailFile,
 )
-from toolong.watcher import Watcher
+from toolong.watcher import WatcherBase
 
 
 from rich.segment import Segment
@@ -197,7 +197,7 @@ class LogLines(ScrollView, inherit_bindings=False):
     can_tail: reactive[bool] = reactive(True)
     show_line_numbers: reactive[bool] = reactive(False)
 
-    def __init__(self, watcher: Watcher, file_paths: list[str]) -> None:
+    def __init__(self, watcher: WatcherBase, file_paths: list[str]) -> None:
         super().__init__()
         self.watcher = watcher
         self.file_paths = file_paths
@@ -221,6 +221,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         self._gutter_width = 0
         self._line_reader = LineReader(self)
         self._merge_lines: list[tuple[float, int, LogFile]] | None = None
+        self._lock = RLock()
 
     @property
     def log_file(self) -> LogFile:
@@ -269,10 +270,13 @@ class LogLines(ScrollView, inherit_bindings=False):
     def start_tail(self) -> None:
         def size_changed(size: int, breaks: list[int]) -> None:
             """Callback when the file changes size."""
+            with self._lock:
+                for offset, _ in enumerate(breaks, 1):
+                    self.get_line_from_index(self.line_count - offset)
+            self.post_message(NewBreaks(self.log_file, breaks, size, tail=True))
             if self.message_queue_size > 10:
                 while self.message_queue_size > 2:
                     time.sleep(0.1)
-            self.post_message(NewBreaks(self.log_file, breaks, size, tail=True))
 
         def watch_error(error: Exception) -> None:
             """Callback when there is an error watching the file."""
@@ -424,13 +428,10 @@ class LogLines(ScrollView, inherit_bindings=False):
         )
         return (log_file, start, end)
 
-    def get_line_from_index_blocking(self, index: int) -> str:
-        log_file, start, end = self.index_to_span(index)
-        return log_file.get_line(start, end)
-
     def get_line_from_index(self, index: int) -> str | None:
-        log_file, start, end = self.index_to_span(index)
-        return self.get_line(log_file, index, start, end)
+        with self._lock:
+            log_file, start, end = self.index_to_span(index)
+            return self.get_line(log_file, index, start, end)
 
     def _get_line(self, log_file: LogFile, start: int, end: int) -> str:
         return log_file.get_line(start, end)
@@ -439,23 +440,25 @@ class LogLines(ScrollView, inherit_bindings=False):
         self, log_file: LogFile, index: int, start: int, end: int
     ) -> str | None:
         cache_key = (log_file, start, end)
-        try:
-            line = self._line_cache[cache_key]
-        except KeyError:
-            self._line_reader.request_line(log_file, index, start, end)
-            return None
-        return line
+        with self._lock:
+            try:
+                line = self._line_cache[cache_key]
+            except KeyError:
+                self._line_reader.request_line(log_file, index, start, end)
+                return None
+            return line
 
     def get_line_blocking(
         self, log_file: LogFile, index: int, start: int, end: int
     ) -> str:
-        cache_key = (log_file, start, end)
-        try:
-            line = self._line_cache[cache_key]
-        except KeyError:
-            line = self._get_line(log_file, start, end)
-            self._line_cache[cache_key] = line
-        return line
+        with self._lock:
+            cache_key = (log_file, start, end)
+            try:
+                line = self._line_cache[cache_key]
+            except KeyError:
+                line = self._get_line(log_file, start, end)
+                self._line_cache[cache_key] = line
+            return line
 
     def get_text(
         self,
@@ -501,6 +504,9 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.log_file.close()
 
     def on_idle(self) -> None:
+        self.update_virtual_size()
+
+    def update_virtual_size(self) -> None:
         self.virtual_size = Size(
             self._max_width
             + (self.gutter_width if self.show_gutter or self.show_line_numbers else 0),
@@ -508,11 +514,8 @@ class LogLines(ScrollView, inherit_bindings=False):
         )
 
     def render_lines(self, crop: Region) -> list[Strip]:
-        self.virtual_size = Size(
-            self._max_width
-            + (self.gutter_width if self.show_gutter or self.show_line_numbers else 0),
-            self.line_count,
-        )
+        self.update_virtual_size()
+
         page_height = self.scrollable_content_region.height
         scroll_y = self.scroll_offset.y
         line_count = self.line_count
@@ -551,7 +554,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         try:
             strip = self._render_line_cache[cache_key]
         except KeyError:
-            line, text, timestamp = self.get_text(index, abbreviate=True)
+            line, text, timestamp = self.get_text(index, abbreviate=True, block=True)
             text.stylize_before(style)
 
             if is_pointer:
@@ -669,7 +672,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         if self.show_find:
             check_match = self.check_match
             for line_no in line_range:
-                line = self.get_line_from_index_blocking(line_no)
+                line = self.get_line_from_index(line_no)
                 if line and check_match(line):
                     self.pointer_line = line_no
                     break
@@ -874,8 +877,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         if self.tail:
             if self.pointer_line is not None and pointer_distance_from_end is not None:
                 self.pointer_line = self.virtual_size.height - pointer_distance_from_end
-            for offset, _ in enumerate(event.breaks, 1):
-                self.get_text(self.line_count - offset, abbreviate=True)
+            self.update_virtual_size()
             self.scroll_to(y=self.max_scroll_y, animate=False, force=True)
 
     def watch_scroll_y(self, old_value: float, new_value: float) -> None:
