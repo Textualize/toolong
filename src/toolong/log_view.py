@@ -231,8 +231,7 @@ class LogFooter(Widget):
         if self.line_no is not None:
             meta.append(f"{self.line_no + 1}")
 
-        # meta_line = " • ".join(meta)
-        meta_line = Text.assemble(*meta)
+        meta_line = " • ".join(meta)
         self.query_one(".meta", Label).update(meta_line)
 
     def watch_tail(self, tail: bool) -> None:

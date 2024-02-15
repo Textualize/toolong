@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from queue import Empty, Queue
+from operator import itemgetter
 from threading import Event, RLock, Thread
 
 from textual.message import Message
@@ -386,7 +387,7 @@ class LogLines(ScrollView, inherit_bindings=False):
 
             position += log_file.size
 
-        merge_lines.sort()
+        merge_lines.sort(key=itemgetter(0, 1))
 
         self.post_message(ScanComplete(total_size, total_size))
 
