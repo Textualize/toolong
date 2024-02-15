@@ -59,9 +59,11 @@ class LogFile:
         except Exception:
             return None
         try:
+            # This works on Mac
             create_time_seconds = stat_result.st_birthtime
         except AttributeError:
-            create_time_seconds = stat_result.st_mtime
+            # No birthtime for Linux, so we assume the epoch start
+            return datetime.fromtimestamp(0)
         timestamp = datetime.fromtimestamp(create_time_seconds)
         return timestamp
 
@@ -183,7 +185,7 @@ class LogFile:
         scan_time = monotonic()
         scan = self.timestamp_scanner.scan
         line_no = 0
-        timestamp = self.get_create_time() or datetime.utcnow()
+        timestamp = self.get_create_time() or datetime.now()
         position = 0
         results: list[tuple[int, int, float]] = []
         append = results.append
