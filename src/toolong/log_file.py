@@ -36,6 +36,7 @@ class LogFile:
         yield self.name
         yield "size", self.size
 
+    @property
     def is_open(self) -> bool:
         return self.file is not None
 

@@ -295,7 +295,8 @@ class LogLines(ScrollView, inherit_bindings=False):
 
         if len(self.log_files) > 1:
             self.merge_log_files()
-            self.call_later(self.save, save_merge, self.line_count)
+            if save_merge is not None:
+                self.call_later(self.save, save_merge, self.line_count)
             return
 
         try:
@@ -346,8 +347,14 @@ class LogLines(ScrollView, inherit_bindings=False):
         append_meta = merge_lines.append
 
         for log_file in self.log_files:
-            log_file.open(worker.cancelled_event)
-            self._line_breaks[log_file] = []
+            try:
+                log_file.open(worker.cancelled_event)
+            except Exception as error:
+                self.notify(
+                    f"Failed to open {log_file.name!r}; {error}", severity="error"
+                )
+            else:
+                self._line_breaks[log_file] = []
 
         self.loading = False
 
@@ -355,6 +362,8 @@ class LogLines(ScrollView, inherit_bindings=False):
         position = 0
 
         for log_file in self.log_files:
+            if not log_file.is_open:
+                continue
             append = self._line_breaks[log_file].append
             for timestamps in log_file.scan_timestamps():
                 break_position = 0
