@@ -79,8 +79,13 @@ from functools import total_ordering
 
 @total_ordering
 class CompareTokens:
-    def __init__(self, tokens: list[int | str]):
-        self.tokens = tokens
+    """Compare filenames."""
+
+    def __init__(self, path: str) -> None:
+        self.tokens = [
+            int(token) if token.isdigit() else token.lower()
+            for token in path.split("/")[-1].split(".")
+        ]
 
     def __eq__(self, other: object) -> bool:
         return self.tokens == other.tokens
@@ -101,15 +106,7 @@ class UI(App):
 
     @classmethod
     def sort_paths(cls, paths: list[str]) -> list[str]:
-        def key(path) -> CompareTokens:
-            return CompareTokens(
-                [
-                    int(token) if token.isdigit() else token.lower()
-                    for token in path.split("/")[-1].split(".")
-                ]
-            )
-
-        return sorted(paths, key=key)
+        return sorted(paths, key=CompareTokens)
 
     def __init__(
         self, file_paths: list[str], merge: bool = False, save_merge: str | None = None
