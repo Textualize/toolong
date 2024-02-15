@@ -8,6 +8,11 @@ from toolong.log_file import LogFile
 
 
 @dataclass
+class Goto(Message):
+    pass
+
+
+@dataclass
 class SizeChanged(Message, bubble=False):
     """File size has changed."""
 

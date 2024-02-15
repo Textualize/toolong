@@ -20,6 +20,7 @@ from toolong.scan_progress_bar import ScanProgressBar
 
 from toolong.messages import (
     DismissOverlay,
+    Goto,
     PendingLines,
     PointerMoved,
     ScanComplete,
@@ -118,6 +119,18 @@ class FooterKey(Label):
         await self.app.check_bindings(self.key)
 
 
+class MetaLabel(Label):
+
+    DEFAULT_CSS = """
+    MetaLabel:hover {
+        text-style: underline;
+    }
+    """
+
+    def on_click(self) -> None:
+        self.post_message(Goto())
+
+
 class LogFooter(Widget):
     """Shows a footer with information about the file and keys."""
 
@@ -170,7 +183,7 @@ class LogFooter(Widget):
         with Horizontal(classes="key-container"):
             pass
         yield Label("TAIL", classes="tail")
-        yield Label("", classes="meta")
+        yield MetaLabel("", classes="meta")
 
     async def mount_keys(self) -> None:
         try:
@@ -215,8 +228,9 @@ class LogFooter(Widget):
         if self.line_no is not None:
             meta.append(f"{self.line_no + 1}")
 
-        meta_line = " • ".join(meta)
-        self.query_one(".meta", Label).update(Text(meta_line))
+        # meta_line = " • ".join(meta)
+        meta_line = Text.assemble(*meta)
+        self.query_one(".meta", Label).update(meta_line)
 
     def watch_tail(self, tail: bool) -> None:
         self.query(".tail").set_class(tail and self.can_tail, "on")
@@ -261,6 +275,7 @@ class LogView(Horizontal):
         ),
         Binding("ctrl+f", "show_find_dialog", "Find", key_display="^f"),
         Binding("slash", "show_find_dialog", "Find", key_display="^f", show=False),
+        Binding("ctrl+g", "goto", "Go to", key_display="^g"),
     ]
 
     show_find: reactive[bool] = reactive(False)
@@ -416,3 +431,12 @@ class LogView(Horizontal):
         ):
             self.show_find = True
             find_dialog.focus_input()
+
+    @on(Goto)
+    def on_goto(self) -> None:
+        self.action_goto()
+
+    def action_goto(self) -> None:
+        from toolong.goto_screen import GotoScreen
+
+        self.app.push_screen(GotoScreen(self.query_one(LogLines)))
