@@ -42,7 +42,9 @@ class RegexLogFormat(LogFormat):
         groups = match.groupdict()
         _, timestamp = timestamps.parse(groups["date"].strip("[]"))
 
-        text = self.highlighter(line)
+        text = Text.from_ansi(line)
+        if not text.spans:
+            text = self.highlighter(text)
         if status := groups.get("status", None):
             text.highlight_words(
                 [f" {status} "], "bold red" if status.startswith("4") else "magenta"
