@@ -229,9 +229,10 @@ class LogLines(ScrollView, inherit_bindings=False):
 
     @property
     def line_count(self) -> int:
-        if self._merge_lines is not None:
-            return len(self._merge_lines)
-        return self._line_count
+        with self._lock:
+            if self._merge_lines is not None:
+                return len(self._merge_lines)
+            return self._line_count
 
     @property
     def gutter_width(self) -> int:
@@ -265,7 +266,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.loading = True
         self.add_class("-scanning")
         self._line_reader.start()
-        self.initial_scan_worker = self.run_scan()
+        self.initial_scan_worker = self.run_scan(self.app.save_merge)
 
     def start_tail(self) -> None:
         def size_changed(size: int, breaks: list[int]) -> None:
@@ -289,11 +290,12 @@ class LogLines(ScrollView, inherit_bindings=False):
         )
 
     @work(thread=True)
-    def run_scan(self) -> None:
+    def run_scan(self, save_merge: str | None = None) -> None:
         worker = get_current_worker()
 
         if len(self.log_files) > 1:
             self.merge_log_files()
+            self.call_later(self.save, save_merge, self.line_count)
             return
 
         try:
@@ -403,6 +405,25 @@ class LogLines(ScrollView, inherit_bindings=False):
                 batch = []
         yield (0, batch)
 
+    @work(thread=True)
+    def save(self, path: str, line_count: int) -> None:
+        """Save visible lines (used to export merged lines).
+
+        Args:
+            path: Path to save to.
+            line_count: Number of lines to save.
+        """
+        try:
+            with open(path, "w") as file_out:
+                for line_no in range(line_count):
+                    line = self.get_line_from_index_blocking(line_no)
+                    if line:
+                        file_out.write(f"{line}\n")
+        except Exception as error:
+            self.notify(f"Failed to save {path!r}; {error}", severity="error")
+        else:
+            self.notify(f"Saved merged log files to {path!r}")
+
     def get_log_file_from_index(self, index: int) -> tuple[LogFile, int]:
         if self._merge_lines is not None:
             try:
@@ -427,6 +448,11 @@ class LogLines(ScrollView, inherit_bindings=False):
             else max(0, self._scanned_size - 1)
         )
         return (log_file, start, end)
+
+    def get_line_from_index_blocking(self, index: int) -> str | None:
+        with self._lock:
+            log_file, start, end = self.index_to_span(index)
+            return log_file.get_line(start, end)
 
     def get_line_from_index(self, index: int) -> str | None:
         with self._lock:

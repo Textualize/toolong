@@ -87,9 +87,12 @@ class UI(App):
 
         return sorted(paths, key=key)
 
-    def __init__(self, file_paths: list[str], merge: bool = False) -> None:
+    def __init__(
+        self, file_paths: list[str], merge: bool = False, save_merge: str | None = None
+    ) -> None:
         self.file_paths = self.sort_paths(file_paths)
         self.merge = merge
+        self.save_merge = save_merge
         self.watcher = get_watcher()
         super().__init__()
 
