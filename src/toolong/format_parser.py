@@ -70,7 +70,9 @@ class DefaultLogFormat(LogFormat):
     highlighter = LogHighlighter()
 
     def parse(self, line: str) -> ParseResult | None:
-        text = self.highlighter(line)
+        text = Text.from_ansi(line)
+        if not text.spans:
+            text = self.highlighter(text)
         return None, line, text
 
 
@@ -87,7 +89,9 @@ class JSONLogFormat(LogFormat):
         except Exception:
             return None
         _, timestamp = timestamps.parse(line)
-        text = self.highlighter(line)
+        text = Text.from_ansi(line)
+        if not text.spans:
+            text = self.highlighter(text)
         return timestamp, line, text
 
 
