@@ -122,6 +122,9 @@ class FooterKey(Label):
 class MetaLabel(Label):
 
     DEFAULT_CSS = """
+    MetaLabel {
+        margin-left: 1;
+    }
     MetaLabel:hover {
         text-style: underline;
     }
@@ -270,9 +273,7 @@ class LogView(Horizontal):
 
     BINDINGS = [
         Binding("ctrl+t", "toggle_tail", "Tail", key_display="^t"),
-        Binding(
-            "ctrl+l", "toggle('show_line_numbers')", "Line numbers", key_display="^l"
-        ),
+        Binding("ctrl+l", "toggle('show_line_numbers')", "Line nos.", key_display="^l"),
         Binding("ctrl+f", "show_find_dialog", "Find", key_display="^f"),
         Binding("slash", "show_find_dialog", "Find", key_display="^f", show=False),
         Binding("ctrl+g", "goto", "Go to", key_display="^g"),
@@ -345,7 +346,9 @@ class LogView(Horizontal):
 
     @on(DismissOverlay)
     def dismiss_overlay(self) -> None:
-        if self.show_panel:
+        if self.show_find:
+            self.show_find = False
+        elif self.show_panel:
             self.show_panel = False
         else:
             self.query_one(LogLines).pointer_line = None
