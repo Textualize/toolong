@@ -1,12 +1,25 @@
 from dataclasses import dataclass
+import re
 
 from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.message import Message
 from textual.suggester import Suggester
+from textual.validation import Validator, ValidationResult
 from textual.widget import Widget
 from textual.widgets import Input, Checkbox
+
+
+class Regex(Validator):
+    def validate(self, value: str) -> ValidationResult:
+        """Check a string is equal to its reverse."""
+        try:
+            re.compile(value)
+        except Exception:
+            return self.failure("Invalid regex")
+        else:
+            return self.success()
 
 
 class FindDialog(Widget, can_focus_children=True):
@@ -24,6 +37,23 @@ class FindDialog(Widget, can_focus_children=True):
         }
         &.visible {
             display: block;
+        }
+        Input {
+            width: 1fr;
+        }
+        Input#find-regex {
+            display: none;
+        }
+        Input#find-text {
+            display: block;
+        }
+        &.-find-regex {
+            Input#find-regex {
+                display: block;
+            }
+            Input#find-text {
+                display: none;
+            }
         }
     }    
     """
@@ -58,9 +88,43 @@ class FindDialog(Widget, can_focus_children=True):
         super().__init__()
 
     def compose(self) -> ComposeResult:
-        yield Input(placeholder="Find", id="find", suggester=self.suggester)
+        yield Input(
+            placeholder="Regex",
+            id="find-regex",
+            suggester=self.suggester,
+            validators=[Regex()],
+        )
+        yield Input(
+            placeholder="Find",
+            id="find-text",
+            suggester=self.suggester,
+        )
         yield Checkbox("Case sensitive", id="case-sensitive")
         yield Checkbox("Regex", id="regex")
+
+    def focus_input(self) -> None:
+        if self.has_class("find-regex"):
+            self.query_one("#find-regex").focus()
+        else:
+            self.query_one("#find-text").focus()
+
+    def get_value(self) -> str:
+        if self.has_class("find-regex"):
+            return self.query_one("#find-regex", Input).value
+        else:
+            return self.query_one("#find-text", Input).value
+
+    @on(Checkbox.Changed, "#regex")
+    def on_checkbox_changed_regex(self, event: Checkbox.Changed):
+        if event.value:
+            self.query_one("#find-regex", Input).value = self.query_one(
+                "#find-text", Input
+            ).value
+        else:
+            self.query_one("#find-text", Input).value = self.query_one(
+                "#find-regex", Input
+            ).value
+        self.set_class(event.value, "-find-regex")
 
     @on(Input.Changed)
     @on(Checkbox.Changed)
@@ -75,7 +139,7 @@ class FindDialog(Widget, can_focus_children=True):
 
     def post_update(self) -> None:
         update = FindDialog.Update(
-            find=self.query_one("#find", Input).value,
+            find=self.get_value(),
             regex=self.query_one("#regex", Checkbox).value,
             case_sensitive=self.query_one("#case-sensitive", Checkbox).value,
         )

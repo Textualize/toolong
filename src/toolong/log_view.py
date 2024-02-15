@@ -28,7 +28,7 @@ from toolong.messages import (
 )
 from toolong.find_dialog import FindDialog
 from toolong.line_panel import LinePanel
-from toolong.watcher import get_watcher, WatcherBase
+from toolong.watcher import WatcherBase
 from toolong.log_lines import LogLines
 
 
@@ -259,8 +259,8 @@ class LogView(Horizontal):
         Binding(
             "ctrl+l", "toggle('show_line_numbers')", "Line numbers", key_display="^l"
         ),
-        Binding("ctrl+f", "toggle('show_find')", "Find", key_display="^f"),
-        Binding("slash", "toggle('show_find')", "Find", key_display="^f", show=False),
+        Binding("ctrl+f", "show_find_dialog", "Find", key_display="^f"),
+        Binding("slash", "show_find_dialog", "Find", key_display="^f", show=False),
     ]
 
     show_find: reactive[bool] = reactive(False)
@@ -305,7 +305,7 @@ class LogView(Horizontal):
         filter_dialog = self.query_one(FindDialog)
         filter_dialog.set_class(show_find, "visible")
         if show_find:
-            filter_dialog.query_one("Input").focus()
+            filter_dialog.focus_input()
         else:
             self.query_one(LogLines).focus()
 
@@ -408,3 +408,11 @@ class LogView(Horizontal):
             self.notify("Can't tail merged files", title="Tail", severity="error")
         else:
             self.tail = not self.tail
+
+    def action_show_find_dialog(self) -> None:
+        find_dialog = self.query_one(FindDialog)
+        if not self.show_find or not any(
+            input.has_focus for input in find_dialog.query("Input")
+        ):
+            self.show_find = True
+            find_dialog.focus_input()

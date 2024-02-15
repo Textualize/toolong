@@ -665,12 +665,18 @@ class LogLines(ScrollView, inherit_bindings=False):
         if not line:
             return True
         if self.regex:
-            return (
-                re.match(
-                    self.find, line, flags=0 if self.case_sensitive else re.IGNORECASE
+            try:
+                return (
+                    re.match(
+                        self.find,
+                        line,
+                        flags=0 if self.case_sensitive else re.IGNORECASE,
+                    )
+                    is not None
                 )
-                is not None
-            )
+            except Exception:
+                self.notify("Regex is invalid!", severity="error")
+                return True
         else:
             if self.case_sensitive:
                 return self.find in line
