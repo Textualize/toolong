@@ -74,16 +74,40 @@ class LogScreen(Screen):
         self.app.push_screen(HelpScreen())
 
 
+from functools import total_ordering
+
+
+@total_ordering
+class CompareTokens:
+    def __init__(self, tokens: list[int | str]):
+        self.tokens = tokens
+
+    def __eq__(self, other: object) -> bool:
+        return self.tokens == other.tokens
+
+    def __lt__(self, other: CompareTokens) -> bool:
+        for token1, token2 in zip(self.tokens, other.tokens):
+            try:
+                if token1 < token2:
+                    return True
+            except TypeError:
+                if str(token1) < str(token2):
+                    return True
+        return len(self.tokens) < len(other.tokens)
+
+
 class UI(App):
     """The top level App object."""
 
     @classmethod
     def sort_paths(cls, paths: list[str]) -> list[str]:
-        def key(path) -> list:
-            return [
-                int(token) if token.isdigit() else token.lower()
-                for token in path.split("/")[-1].split(".")
-            ]
+        def key(path) -> CompareTokens:
+            return CompareTokens(
+                [
+                    int(token) if token.isdigit() else token.lower()
+                    for token in path.split("/")[-1].split(".")
+                ]
+            )
 
         return sorted(paths, key=key)
 
