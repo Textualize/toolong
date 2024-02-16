@@ -538,13 +538,13 @@ jupyter = ["ipywidgets (>=7.5.1,<9)"]
 
 [[package]]
 name = "textual"
-version = "0.50.0"
+version = "0.50.1"
 description = "Modern Text User Interface framework"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "textual-0.50.0-py3-none-any.whl", hash = "sha256:4ddbadddc6b7b9bf625b80396d7206bb7fa6645dc5e32cfde31fdadf8f03d110"},
-    {file = "textual-0.50.0.tar.gz", hash = "sha256:d809741a86a19fe3d88108ae500d744248bf2daf7eac8b440079a49b4b981680"},
+    {file = "textual-0.50.1-py3-none-any.whl", hash = "sha256:11bd87fe6c543358122c43db2e9dfc5940900ef9b8975502ab7043792928638b"},
+    {file = "textual-0.50.1.tar.gz", hash = "sha256:415bef44b2dfa702d17ebb08637c0141eb54767cfbeafe60d07e62104183b56a"},
 ]
 
 [package.dependencies]
@@ -586,13 +586,13 @@ files = [
 
 [[package]]
 name = "uc-micro-py"
-version = "1.0.2"
+version = "1.0.3"
 description = "Micro subset of unicode data files for linkify-it-py projects."
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "uc-micro-py-1.0.2.tar.gz", hash = "sha256:30ae2ac9c49f39ac6dce743bd187fcd2b574b16ca095fa74cd9396795c954c54"},
-    {file = "uc_micro_py-1.0.2-py3-none-any.whl", hash = "sha256:8c9110c309db9d9e87302e2f4ad2c3152770930d88ab385cd544e7a7e75f3de0"},
+    {file = "uc-micro-py-1.0.3.tar.gz", hash = "sha256:d321b92cff673ec58027c04015fcaa8bb1e005478643ff4a500882eaab88c48a"},
+    {file = "uc_micro_py-1.0.3-py3-none-any.whl", hash = "sha256:db1dffff340817673d7b466ec86114a9dc0e9d4d9b5ba229d9d60e5c12600cd5"},
 ]
 
 [package.extras]
