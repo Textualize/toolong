@@ -8,12 +8,15 @@ import platform
 import time
 from pathlib import Path
 from typing import IO, Iterable
-from threading import Event
+from threading import Event, Lock
 
 import rich.repr
 
 from toolong.format_parser import FormatParser, ParseResult
 from toolong.timestamps import TimestampScanner
+
+
+IS_WINDOWS = platform.system() == "Windows"
 
 
 class LogError(Exception):
@@ -32,6 +35,7 @@ class LogFile:
         self.can_tail = False
         self.timestamp_scanner = TimestampScanner()
         self.format_parser = FormatParser()
+        self._lock = Lock()
 
     def __rich_repr__(self) -> rich.repr.Result:
         yield self.name
@@ -126,10 +130,25 @@ class LogFile:
             self.file.close()
             self.file = None
 
-    def get_raw(self, start: int, end: int) -> bytes:
-        if start >= end or self.file is None:
-            return b""
-        return os.pread(self.fileno, end - start, start)
+    if IS_WINDOWS:
+
+        def get_raw(self, start: int, end: int) -> bytes:
+            with self._lock:
+                if start >= end or self.file is None:
+                    return b""
+                os.lseek(self.fileno, start, os.SEEK_SET)
+                position = os.lseek(self.fileno, 0, os.SEEK_CUR)
+                try:
+                    return os.read(self.fileno, end - start)
+                finally:
+                    os.lseek(self.fileno, position, os.SEEK_SET)
+
+    else:
+
+        def get_raw(self, start: int, end: int) -> bytes:
+            if start >= end or self.file is None:
+                return b""
+            return os.pread(self.fileno, end - start, start)
 
     def get_line(self, start: int, end: int) -> str:
 
@@ -159,7 +178,7 @@ class LogFile:
         size = self.size
         if not size:
             return
-        if platform.system() == "Windows":
+        if IS_WINDOWS:
             log_mmap = mmap.mmap(fileno, size, access=mmap.ACCESS_READ)
         else:
             log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
