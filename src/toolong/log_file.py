@@ -136,9 +136,9 @@ class LogFile:
             with self._lock:
                 if start >= end or self.file is None:
                     return b""
-                os.lseek(self.fileno, start, os.SEEK_SET)
                 position = os.lseek(self.fileno, 0, os.SEEK_CUR)
                 try:
+                    os.lseek(self.fileno, start, os.SEEK_SET)
                     return os.read(self.fileno, end - start)
                 finally:
                     os.lseek(self.fileno, position, os.SEEK_SET)
