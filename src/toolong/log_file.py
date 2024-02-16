@@ -159,7 +159,7 @@ class LogFile:
         size = self.size
         if not size:
             return
-        if platform.system == "Windows":
+        if platform.system() == "Windows":
             log_mmap = mmap.mmap(fileno, size, access=mmap.ACCESS_READ)
         else:
             log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
