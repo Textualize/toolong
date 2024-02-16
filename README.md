@@ -133,7 +133,7 @@ In the near future there will be more install methods, and hopefully your favori
 
 ### Compatibility
 
-Toolong works on Linux and macOS. I don't think it will work on Windows yet, but it *could*. Let me know if you would like Windows support.
+Toolong works on Linux, macOS, and Windows.
 
 ### Opening files
 
