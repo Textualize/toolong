@@ -713,11 +713,14 @@ class LogLines(ScrollView, inherit_bindings=False):
         max_scroll_y = scroll_y + self.scrollable_content_region.height - 1
         if self.show_find:
             check_match = self.check_match
-            for line_no in line_range:
-                line = self.get_line_from_index(line_no)
-                if line and check_match(line):
-                    self.pointer_line = line_no
-                    break
+            with self._lock:
+                _get_line = self.get_line_from_index_blocking
+                for line_no in line_range:
+                    if (line := _get_line(line_no)) and check_match(line):
+                        self.pointer_line = line_no
+                        self.scroll_pointer_to_center()
+                        return
+            self.app.bell()
         else:
             self.pointer_line = next(
                 iter(line_range), self.pointer_line or self.scroll_offset.y
@@ -731,10 +734,13 @@ class LogLines(ScrollView, inherit_bindings=False):
                 self.scroll_pointer_to_center()
 
     def scroll_pointer_to_center(self, animate: bool = True):
+        if self.pointer_line is None:
+            return
         y_offset = self.pointer_line - self.scrollable_content_region.height // 2
+        scroll_distance = abs(y_offset - self.scroll_offset.y)
         self.scroll_to(
             y=y_offset,
-            animate=animate and abs(y_offset - self.scroll_offset.y) > 1,
+            animate=animate and 100 > scroll_distance > 1,
             duration=0.2,
         )
 

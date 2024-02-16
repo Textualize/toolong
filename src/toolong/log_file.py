@@ -128,13 +128,16 @@ class LogFile:
     def get_raw(self, start: int, end: int) -> bytes:
         if start >= end or self.file is None:
             return b""
-        raw_data = os.pread(self.fileno, end - start, start)
-        return raw_data
+        return os.pread(self.fileno, end - start, start)
 
     def get_line(self, start: int, end: int) -> str:
-        line_bytes = self.get_raw(start, end)
-        line = line_bytes.decode("utf-8", errors="replace").strip("\n\r").expandtabs(4)
-        return line
+
+        return (
+            self.get_raw(start, end)
+            .decode("utf-8", errors="replace")
+            .strip("\n\r")
+            .expandtabs(4)
+        )
 
     def read(self, size: int) -> bytes:
         assert self.file is not None, "Must be open to read"
