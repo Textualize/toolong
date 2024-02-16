@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 import mmap
 import mimetypes
+import platform
 import time
 from pathlib import Path
 from typing import IO, Iterable
@@ -158,24 +159,29 @@ class LogFile:
         size = self.size
         if not size:
             return
-        log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
-        rfind = log_mmap.rfind
-        position = size
-        batch: list[int] = []
-        append = batch.append
-        get_length = batch.__len__
-        monotonic = time.monotonic
-        break_time = monotonic()
+        if platform.system == "Windows":
+            log_mmap = mmap.mmap(fileno, size, access=mmap.ACCESS_READ)
+        else:
+            log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
+        try:
+            rfind = log_mmap.rfind
+            position = size
+            batch: list[int] = []
+            append = batch.append
+            get_length = batch.__len__
+            monotonic = time.monotonic
+            break_time = monotonic()
 
-        while (position := rfind(b"\n", 0, position)) != -1:
-            append(position)
-            if get_length() % 1000 == 0 and monotonic() - break_time > batch_time:
-                break_time = monotonic()
-                yield (position, batch)
-                batch = []
-                append = batch.append
-        yield (0, batch)
-        log_mmap.close()
+            while (position := rfind(b"\n", 0, position)) != -1:
+                append(position)
+                if get_length() % 1000 == 0 and monotonic() - break_time > batch_time:
+                    break_time = monotonic()
+                    yield (position, batch)
+                    batch = []
+                    append = batch.append
+            yield (0, batch)
+        finally:
+            log_mmap.close()
 
     def scan_timestamps(
         self, batch_time: float = 0.25

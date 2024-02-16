@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from queue import Empty, Queue
 from operator import itemgetter
+import platform
 from threading import Event, RLock, Thread
 
 from textual.message import Message
@@ -396,7 +397,10 @@ class LogLines(ScrollView, inherit_bindings=False):
 
         Yields lists of offsets.
         """
-        log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
+        if platform.system() == "Windows":
+            log_mmap = mmap.mmap(fileno, size, access=mmap.ACCESS_READ)
+        else:
+            log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
         rfind = log_mmap.rfind
         position = size
         batch: list[int] = []
