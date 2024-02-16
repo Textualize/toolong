@@ -336,10 +336,7 @@ class LogLines(ScrollView, inherit_bindings=False):
                 line_count += len(breaks)
             if worker.is_cancelled:
                 break
-        else:
-            self.post_message(ScanComplete(size, position))
-            return
-        self.post_message(ScanComplete(size, 0))
+        self.post_message(ScanComplete(size, position))
 
     def merge_log_files(self) -> None:
         worker = get_current_worker()
