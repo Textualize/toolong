@@ -328,9 +328,9 @@ class LogLines(ScrollView, inherit_bindings=False):
 
         for position, breaks in self.log_file.scan_line_breaks():
             line_count_thousands = line_count // 1000
-            message = f"Scanned ({line_count_thousands:,}K lines)- ESCAPE to cancel"
+            message = f"Scanning… ({line_count_thousands:,}K lines)- ESCAPE to cancel"
 
-            self.post_message(ScanProgress(message, position / size, position))
+            self.post_message(ScanProgress(message, 1 - (position / size), position))
             if breaks:
                 self.post_message(NewBreaks(self.log_file, breaks))
                 line_count += len(breaks)
@@ -713,10 +713,14 @@ class LogLines(ScrollView, inherit_bindings=False):
         max_scroll_y = scroll_y + self.scrollable_content_region.height - 1
         if self.show_find:
             check_match = self.check_match
+            index_to_span = self.index_to_span
             with self._lock:
-                _get_line = self.get_line_from_index_blocking
                 for line_no in line_range:
-                    if (line := _get_line(line_no)) and check_match(line):
+                    log_file, start, end = index_to_span(line_no)
+                    line = log_file.get_raw(start, end).decode(
+                        "utf-8", errors="replace"
+                    )
+                    if check_match(line):
                         self.pointer_line = line_no
                         self.scroll_pointer_to_center()
                         return
