@@ -159,10 +159,6 @@ class LogFile:
             .expandtabs(4)
         )
 
-    def read(self, size: int) -> bytes:
-        assert self.file is not None, "Must be open to read"
-        return self.file.read(size)
-
     def scan_line_breaks(
         self, batch_time: float = 0.25
     ) -> Iterable[tuple[int, list[int]]]:
@@ -208,7 +204,11 @@ class LogFile:
         size = self.size
         if not size:
             return
-        log_mmap = mmap.mmap(self.fileno, size, prot=mmap.PROT_READ)
+        fileno = self.fileno
+        if IS_WINDOWS:
+            log_mmap = mmap.mmap(fileno, size, access=mmap.ACCESS_READ)
+        else:
+            log_mmap = mmap.mmap(fileno, size, prot=mmap.PROT_READ)
 
         monotonic = time.monotonic
         scan_time = monotonic()
