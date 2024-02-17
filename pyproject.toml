@@ -13,7 +13,7 @@ documentation = "https://github.com/textualize/toolong"
 [tool.poetry.dependencies]
 python = "^3.8"
 click = "^8.1.7"
-textual = "^0.50.0"
+textual = ">=0.50.0,<1"
 typing-extensions = "^4.9.0"
 
 [tool.poetry.group.dev.dependencies]
