@@ -214,16 +214,15 @@ class LogFile:
         scan_time = monotonic()
         scan = self.timestamp_scanner.scan
         line_no = 0
-        timestamp = self.get_create_time() or datetime.now()
         position = 0
         results: list[tuple[int, int, float]] = []
         append = results.append
         get_length = results.__len__
         while line_bytes := log_mmap.readline():
             line = line_bytes.decode("utf-8", errors="replace")
-            timestamp = scan(line) or timestamp
-            append((line_no, position, timestamp.timestamp()))
+            timestamp = scan(line)
             position += len(line_bytes)
+            append((line_no, position, timestamp.timestamp() if timestamp else 0.0))
             line_no += 1
             if (
                 results
