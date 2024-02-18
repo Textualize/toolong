@@ -342,8 +342,7 @@ class LogLines(ScrollView, inherit_bindings=False):
     def merge_log_files(self) -> None:
         worker = get_current_worker()
         self._merge_lines = []
-        merge_lines: list[tuple[float, int, LogFile]] = self._merge_lines
-        append_meta = merge_lines.append
+        merge_lines = self._merge_lines
 
         for log_file in self.log_files:
             try:
@@ -363,13 +362,17 @@ class LogLines(ScrollView, inherit_bindings=False):
         for log_file in self.log_files:
             if not log_file.is_open:
                 continue
-            append = self._line_breaks[log_file].append
+            line_breaks = self._line_breaks[log_file]
+            append = line_breaks.append
+            meta: list[tuple[float, int, LogFile]] = []
+            append_meta = meta.append
             for timestamps in log_file.scan_timestamps():
                 break_position = 0
+
                 for line_no, break_position, timestamp in timestamps:
-                    if break_position:
-                        append_meta((timestamp, line_no, log_file))
-                        append(break_position)
+                    append_meta((timestamp, line_no, log_file))
+                    append(break_position)
+                append(log_file.size)
 
                 self.post_message(
                     ScanProgress(
@@ -382,6 +385,20 @@ class LogLines(ScrollView, inherit_bindings=False):
                         ScanComplete(total_size, position + break_position)
                     )
                     return
+
+            # Header may be missing timestamp, so we will attempt to back fill timestamps
+            seconds = 0.0
+            for offset, (seconds, line_no, log_file) in enumerate(meta):
+                if seconds:
+                    for index, (_seconds, line_no, log_file) in zip(
+                        range(offset), meta
+                    ):
+                        meta[index] = (seconds, line_no, log_file)
+                    break
+                if offset > 10:
+                    # May be pointless to scan the entire thing
+                    break
+            self._merge_lines.extend(meta)
 
             position += log_file.size
 
@@ -447,11 +464,12 @@ class LogLines(ScrollView, inherit_bindings=False):
     def index_to_span(self, index: int) -> tuple[LogFile, int, int]:
         log_file, index = self.get_log_file_from_index(index)
         line_breaks = self._line_breaks.setdefault(log_file, [])
+        scan_start = 0 if self._merge_lines else self._scan_start
         if not line_breaks:
-            return (log_file, self._scan_start, self._scan_start)
+            return (log_file, scan_start, self._scan_start)
         index = clamp(index, 0, len(line_breaks))
         if index == 0:
-            return (log_file, self._scan_start, line_breaks[0])
+            return (log_file, scan_start, line_breaks[0])
         start = line_breaks[index - 1]
         end = (
             line_breaks[index]
