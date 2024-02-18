@@ -46,19 +46,22 @@ def run(files: list[str], merge: bool, output_merge: str) -> None:
         signal.signal(signal.SIGINT, request_exit)
         signal.signal(signal.SIGTERM, request_exit)
 
+        # Write piped data to a temporary file
         with tempfile.NamedTemporaryFile(
             mode="w+b", buffering=0, prefix="tl_"
         ) as temp_file:
 
+            # Get input directly from /dev/tty to free up stdin
             with open("/dev/tty", "rb", buffering=0) as tty_stdin:
+                # Launch a new process to render the UI
                 with subprocess.Popen(
                     [sys.argv[0], temp_file.name],
                     stdin=tty_stdin,
-                    bufsize=0,
                     close_fds=True,
                     env={**os.environ, "TEXTUAL_ALLOW_SIGNALS": "1"},
                 ) as process:
 
+                    # Current process copies from stdin to the temp file
                     selector = selectors.SelectSelector()
                     selector.register(sys.stdin.fileno(), selectors.EVENT_READ)
 
