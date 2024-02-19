@@ -153,6 +153,16 @@ tl access.log* --merge
 
 In the app, press **f1** for additional help.
 
+### Piping
+
+In addition to specifying files, you can also pipe directly into `tl`.
+This means that you can tail data that comes from another process, and not neccesarily a file.
+Here's an example of piping output from the `tree` command in to Toolong:
+
+```bash
+tree / | tl
+```
+
 ## Who?
 
 This [guy](https://github.com/willmcgugan). An ex web developer who somehow makes a living writing terminal apps.
