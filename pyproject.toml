@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "toolong"
-version = "1.2.2"
+version = "1.3.0"
 description = "A terminal log file viewer / tailer / analyzer"
 authors = ["Will McGugan <will@textualize.io>"]
 license = "MIT"
@@ -13,7 +13,7 @@ documentation = "https://github.com/textualize/toolong"
 [tool.poetry.dependencies]
 python = "^3.8"
 click = "^8.1.7"
-textual = "^0.50.0"
+textual = "^0.52.0"
 typing-extensions = "^4.9.0"
 
 [tool.poetry.group.dev.dependencies]
