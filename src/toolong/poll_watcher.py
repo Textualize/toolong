@@ -17,18 +17,17 @@ class PollWatcher(WatcherBase):
         while not self._exit_event.is_set():
             successful_read = False
             for fileno, watched_file in self._file_descriptors.items():
-                with watched_file._lock:
-                    try:
-                        position = lseek(fileno, 0, SEEK_CUR)
-                        if chunk := read(fileno, chunk_size):
-                            successful_read = True
-                            breaks = scan_chunk(chunk, position)
-                            watched_file.callback(position + len(chunk), breaks)
-                            position += len(chunk)
-                    except Exception as error:
-                        watched_file.error_callback(error)
-                        self._file_descriptors.pop(fileno, None)
-                        break
+                try:
+                    position = lseek(fileno, 0, SEEK_CUR)
+                    if chunk := read(fileno, chunk_size):
+                        successful_read = True
+                        breaks = scan_chunk(chunk, position)
+                        watched_file.callback(position + len(chunk), breaks)
+                        position += len(chunk)
+                except Exception as error:
+                    watched_file.error_callback(error)
+                    self._file_descriptors.pop(fileno, None)
+                    break
             else:
                 if not successful_read:
                     time.sleep(0.05)
