@@ -5,7 +5,7 @@ import rich.repr
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import platform
-from threading import Event, Thread
+from threading import Event, Lock, Thread
 from typing import Callable, TYPE_CHECKING
 
 
