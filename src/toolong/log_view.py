@@ -35,6 +35,8 @@ from toolong.log_lines import LogLines
 
 SPLIT_REGEX = r"[\s/\[\]]"
 
+MAX_DETAIL_LINE_LENGTH = 100_000
+
 
 class InfoOverlay(Widget):
     """Displays text under the lines widget when there are new lines."""
@@ -363,7 +365,10 @@ class LogView(Horizontal):
         pointer_line = self.query_one(LogLines).pointer_line
         if pointer_line is not None:
             line, text, timestamp = self.query_one(LogLines).get_text(
-                pointer_line, block=True
+                pointer_line,
+                block=True,
+                abbreviate=True,
+                max_line_length=MAX_DETAIL_LINE_LENGTH,
             )
             await self.query_one(LinePanel).update(line, text, timestamp)
 

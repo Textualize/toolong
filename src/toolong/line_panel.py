@@ -36,11 +36,13 @@ class LineDisplay(Widget):
 
     def compose(self) -> ComposeResult:
         try:
-            json.loads(self.line)
+            json_data = json.loads(self.line)
         except Exception:
-            yield Label(self.text)
+            pass
         else:
-            yield Static(JSON(self.line), expand=True, classes="json")
+            yield Static(JSON.from_data(json_data), expand=True, classes="json")
+            return
+        yield Label(self.text)
 
 
 class LinePanel(ScrollableContainer):

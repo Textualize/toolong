@@ -111,6 +111,8 @@ class FormatParser:
 
     def parse(self, line: str) -> ParseResult:
         """Parse a line."""
+        if len(line) > 10_000:
+            line = line[:10_000]
         for index, format in enumerate(self._formats):
             parse_result = format.parse(line)
             if parse_result is not None:

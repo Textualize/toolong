@@ -46,6 +46,8 @@ from typing import Iterable, Literal, Mapping
 
 SPLIT_REGEX = r"[\s/\[\]\(\)\"\/]"
 
+MAX_LINE_LENGTH = 1000
+
 
 @dataclass
 class LineRead(Message):
@@ -106,9 +108,6 @@ class LineReader(Thread):
                         log_file.get_line(start, end),
                     )
                 )
-
-
-MAX_LINE_LENGTH = 1000
 
 
 class SearchSuggester(Suggester):
@@ -520,6 +519,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         line_index: int,
         abbreviate: bool = False,
         block: bool = False,
+        max_line_length=MAX_LINE_LENGTH,
     ) -> tuple[str, Text, datetime | None]:
         log_file, start, end = self.index_to_span(line_index)
         cache_key = (log_file, start, end, abbreviate)
@@ -535,8 +535,8 @@ class LogLines(ScrollView, inherit_bindings=False):
                 return "", Text(""), None
             line = new_line
             timestamp, line, text = log_file.parse(line)
-            if abbreviate and len(text) > MAX_LINE_LENGTH:
-                text = text[:MAX_LINE_LENGTH] + "…"
+            if abbreviate and len(text) > max_line_length:
+                text = text[:max_line_length] + "…"
             self._text_cache[cache_key] = (line, text, timestamp)
         return line, text.copy(), timestamp
 
