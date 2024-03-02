@@ -123,6 +123,8 @@ class TimestampScanner:
         Returns:
             A datetime or `None` if no timestamp was found.
         """
+        if len(line) > 10_000:
+            line = line[:10000]
         for index, timestamp_format in enumerate(self._timestamp_formats):
             regex, parse_callable = timestamp_format
             if (match := re.search(regex, line)) is not None:

@@ -1,4 +1,5 @@
 from rich.highlighter import RegexHighlighter
+from rich.text import Text
 
 
 def _combine_regex(*regexes: str) -> str:
@@ -28,3 +29,17 @@ class LogHighlighter(RegexHighlighter):
             r"(?P<path>\[.*?\])",
         ),
     ]
+
+    def highlight(self, text: Text) -> None:
+        """Highlight :class:`rich.text.Text` using regular expressions.
+
+        Args:
+            text (~Text): Text to highlighted.
+
+        """
+        if len(text) >= 10_000:
+            return
+
+        highlight_regex = text.highlight_regex
+        for re_highlight in self.highlights:
+            highlight_regex(re_highlight, style_prefix=self.base_style)

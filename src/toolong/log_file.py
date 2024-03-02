@@ -187,6 +187,9 @@ class LogFile:
             monotonic = time.monotonic
             break_time = monotonic()
 
+            if log_mmap[-1] != "\n":
+                batch.append(position)
+
             while (position := rfind(b"\n", 0, position)) != -1:
                 append(position)
                 if get_length() % 1000 == 0 and monotonic() - break_time > batch_time:
