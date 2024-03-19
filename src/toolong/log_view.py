@@ -3,8 +3,6 @@ from __future__ import annotations
 from asyncio import Lock
 from datetime import datetime
 
-from rich.text import Text
-
 from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -100,6 +98,9 @@ class FooterKey(Label):
     DEFAULT_CSS = """
     FooterKey {
         color: $success;
+        &:light {
+            color: $primary;
+        }
         padding: 0 1 0 0;        
         &:hover {
             text-style: bold underline;                        
@@ -292,8 +293,7 @@ class LogView(Horizontal):
         self.file_paths = file_paths
         self.watcher = watcher
         super().__init__()
-        # Need a better solution for this
-        self.call_later(setattr, self, "can_tail", can_tail)
+        self.can_tail = can_tail
 
     def compose(self) -> ComposeResult:
         yield (

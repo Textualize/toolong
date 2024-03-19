@@ -4,6 +4,7 @@ import locale
 
 from pathlib import Path
 
+from rich import terminal_theme
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.lazy import Lazy
@@ -118,6 +119,7 @@ class UI(App):
         super().__init__()
 
     async def on_mount(self) -> None:
+        self.ansi_theme_dark = terminal_theme.DIMMED_MONOKAI
         await self.push_screen(LogScreen())
         self.screen.query("LogLines").focus()
         self.watcher.start()

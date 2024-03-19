@@ -17,7 +17,10 @@ class ScanProgressBar(Vertical):
         display: block;
         text-align: center;
         display: none;
-        align: center top;        
+        align: center top;       
+        ProgressBar {
+            margin: 1 0;
+        } 
     }
 
     LogLines:focus ScanProgressBar.-has-content {
@@ -36,6 +39,6 @@ class ScanProgressBar(Vertical):
         with Center():
             yield Label(classes="message")
         with Center():
-            yield ProgressBar(
-                total=1.0, show_eta=False, show_percentage=False
-            ).data_bind(progress=ScanProgressBar.complete)
+            yield ProgressBar(total=1.0, show_eta=True, show_percentage=True).data_bind(
+                progress=ScanProgressBar.complete
+            )
