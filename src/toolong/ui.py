@@ -3,7 +3,6 @@ from __future__ import annotations
 import locale
 
 from pathlib import Path
-from importlib_metadata import entry_points
 
 from rich import terminal_theme
 from textual.app import App, ComposeResult
@@ -118,11 +117,6 @@ class UI(App):
         self.save_merge = save_merge
         self.watcher = get_watcher()
         super().__init__()
-
-        # Plugin entry point for other packages
-        for entry_point in entry_points(group="toolong.application.on_init"):
-            on_init_plugin = entry_point.load()
-            on_init_plugin(self)
 
     async def on_mount(self) -> None:
         self.ansi_theme_dark = terminal_theme.DIMMED_MONOKAI

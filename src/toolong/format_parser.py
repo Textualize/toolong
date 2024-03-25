@@ -1,6 +1,5 @@
 from __future__ import annotations
 from datetime import datetime
-from importlib_metadata import entry_points
 import json
 import re
 from typing_extensions import TypeAlias
@@ -112,10 +111,6 @@ FORMATS = [
     # DefaultLogFormat(),
 ]
 
-# Plugin entry point for other packages to overwrite formatters
-for entry_point in entry_points(group="toolong.application.formats"):
-    format_plugin = entry_point.load()
-    FORMATS = format_plugin(FORMATS)
 
 default_log_format = DefaultLogFormat()
 
@@ -143,7 +138,4 @@ class FormatParser:
         return None, "", Text()
 
 
-# Plugin entry point for other packages to overwrite FormatParser
-for entry_point in entry_points(group="toolong.application.format_parsers"):
-    format_parser_plugin = entry_point.load()
-    FormatParser = format_parser_plugin(FormatParser)
+
