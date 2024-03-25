@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from importlib_metadata import entry_points
 import os
 import mmap
 import mimetypes
@@ -36,6 +37,10 @@ class LogFile:
         self.timestamp_scanner = TimestampScanner()
         self.format_parser = FormatParser()
         self._lock = Lock()
+        # Plugin entry point for other packages to overwrite the format parsers
+        for entry_point in entry_points(group="toolong.application.format_parsers"):
+            format_parser_plugin = entry_point.load()
+            self.format_parser = format_parser_plugin(self)
 
     def __rich_repr__(self) -> rich.repr.Result:
         yield self.name
