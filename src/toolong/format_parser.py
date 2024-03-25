@@ -111,7 +111,6 @@ FORMATS = [
     # DefaultLogFormat(),
 ]
 
-
 default_log_format = DefaultLogFormat()
 
 
@@ -136,6 +135,3 @@ class FormatParser:
         if parse_result is not None:
             return parse_result
         return None, "", Text()
-
-
-
