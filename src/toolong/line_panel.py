@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 import json
+import re
 
 from rich.json import JSON
 from rich.text import Text
@@ -42,6 +43,8 @@ class LineDisplay(Widget):
         else:
             yield Static(JSON.from_data(json_data), expand=True, classes="json")
             return
+        if self.app.new_lines:
+            self.text._text[0] = re.sub("\\\\n", "\n", self.text._text[0])
         yield Label(self.text)
 
 
