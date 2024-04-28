@@ -74,7 +74,6 @@ class LogFile:
         return timestamp
 
     def open(self, exit_event: Event) -> bool:
-
         # Check for compressed files
         _, encoding = mimetypes.guess_type(self.path.name, strict=False)
 
@@ -151,7 +150,6 @@ class LogFile:
             return os.pread(self.fileno, end - start, start)
 
     def get_line(self, start: int, end: int) -> str:
-
         return (
             self.get_raw(start, end)
             .decode("utf-8", errors="replace")

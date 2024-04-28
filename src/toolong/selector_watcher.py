@@ -32,7 +32,6 @@ class SelectorWatcher(WatcherBase):
 
     def run(self) -> None:
         """Thread runner."""
-
         chunk_size = 64 * 1024
         scan_chunk = self.scan_chunk
 

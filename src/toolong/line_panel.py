@@ -49,7 +49,7 @@ class LineDisplay(Widget):
         if "\\n" in self.text.plain:
             lines = self.text.split("\\n")
             text = Text("\n", no_wrap=True).join(lines)
-            yield Label(text, expand=True, classes="nl")
+            yield Label(text, classes="nl")
         else:
             yield Label(self.text)
 
