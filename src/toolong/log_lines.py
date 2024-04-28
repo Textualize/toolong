@@ -129,20 +129,20 @@ class SearchSuggester(Suggester):
 
 class LogLines(ScrollView, inherit_bindings=False):
     BINDINGS = [
-        Binding("up,k", "scroll_up", "Scroll Up", show=False),
-        Binding("down,j", "scroll_down", "Scroll Down", show=False),
-        Binding("left", "scroll_left", "Scroll Up", show=False),
-        Binding("right", "scroll_right", "Scroll Right", show=False),
-        Binding("home", "scroll_home", "Scroll Home", show=False),
-        Binding("end", "scroll_end", "Scroll End", show=False),
-        Binding("pageup", "page_up", "Page Up", show=False),
-        Binding("pagedown", "page_down", "Page Down", show=False),
+        Binding("up,w,k", "scroll_up", "Scroll Up", show=False),
+        Binding("down,s,j", "scroll_down", "Scroll Down", show=False),
+        Binding("left,h", "scroll_left", "Scroll Up", show=False),
+        Binding("right,l", "scroll_right", "Scroll Right", show=False),
+        Binding("home,G", "scroll_home", "Scroll Home", show=False),
+        Binding("end,g", "scroll_end", "Scroll End", show=False),
+        Binding("pageup,b", "page_up", "Page Up", show=False),
+        Binding("pagedown,space", "page_down", "Page Down", show=False),
         Binding("enter", "select", "Select line", show=False),
         Binding("escape", "dismiss", "Dismiss", show=False, priority=True),
         Binding("m", "navigate(+1, 'm')"),
         Binding("M", "navigate(-1, 'm')"),
-        Binding("h", "navigate(+1, 'h')"),
-        Binding("H", "navigate(-1, 'h')"),
+        Binding("o", "navigate(+1, 'h')"),
+        Binding("O", "navigate(-1, 'h')"),
         Binding("d", "navigate(+1, 'd')"),
         Binding("D", "navigate(-1, 'd')"),
     ]
@@ -785,7 +785,6 @@ class LogLines(ScrollView, inherit_bindings=False):
     def watch_pointer_line(
         self, old_pointer_line: int | None, pointer_line: int | None
     ) -> None:
-
         if old_pointer_line is not None:
             self.refresh_line(old_pointer_line)
         if pointer_line is not None:
@@ -867,7 +866,6 @@ class LogLines(ScrollView, inherit_bindings=False):
 
     # @work(thread=True)
     def action_navigate(self, steps: int, unit: Literal["m", "h", "d"]) -> None:
-
         initial_line_no = line_no = (
             self.scroll_offset.y if self.pointer_line is None else self.pointer_line
         )

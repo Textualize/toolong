@@ -25,11 +25,12 @@ Repository: [https://github.com/Textualize/toolong](https://github.com/Textualiz
 ### Navigation
 
 - `tab` / `shift+tab` to navigate between widgets.
-- `home` / `end` Jump to start or end of file. Press `end` a second time to *tail* the current file.
-- `page up` / `page down` to go to the next / previous page.
-- `↑` / `↓` Move up / down a line.
+- `home` or `G` / `end` or `g` Jump to start or end of file. Press `end` a second time to *tail* the current file.
+- `page up` / `page down` or `space` to go to the next / previous page.
+- `←` or `h` / `→` or `l` Scroll left / right.
+- `↑` or `w` or `k` / `↓` or `s` or `j` Move up / down a line.
 - `m` / `M` Advance +1 / -1 minutes.
-- `h` / `H` Advance +1 / -1 hours.
+- `o` / `O` Advance +1 / -1 hours.
 - `d` / `D` Advance +1 / -1 days.
 - `enter` Toggle pointer mode.
 - `escape` Dismiss.
