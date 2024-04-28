@@ -86,7 +86,6 @@ class DefaultLogFormat(LogFormat):
 
 
 class JSONLogFormat(LogFormat):
-
     highlighter = JSONHighlighter()
 
     def parse(self, line: str) -> ParseResult | None:

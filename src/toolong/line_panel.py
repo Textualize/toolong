@@ -24,7 +24,10 @@ class LineDisplay(Widget):
         }  
         .json {
             width: auto;        
-        }      
+        }
+        .nl {
+            width: auto;
+        }  
     }
     """
 
@@ -42,7 +45,13 @@ class LineDisplay(Widget):
         else:
             yield Static(JSON.from_data(json_data), expand=True, classes="json")
             return
-        yield Label(self.text)
+
+        if "\\n" in self.text.plain:
+            lines = self.text.split("\\n")
+            text = Text("\n", no_wrap=True).join(lines)
+            yield Label(text, expand=True, classes="nl")
+        else:
+            yield Label(self.text)
 
 
 class LinePanel(ScrollableContainer):
@@ -50,6 +59,7 @@ class LinePanel(ScrollableContainer):
     LinePanel {
         background: $panel;        
         overflow-y: auto;
+        overflow-x: auto;
         border: blank transparent;                
         scrollbar-gutter: stable;
         &:focus {
