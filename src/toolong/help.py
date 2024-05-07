@@ -25,7 +25,7 @@ Repository: [https://github.com/Textualize/toolong](https://github.com/Textualiz
 ### Navigation
 
 - `tab` / `shift+tab` to navigate between widgets.
-- `home` or `G` / `end` or `g` Jump to start or end of file. Press `end` a second time to *tail* the current file.
+- `home` or `g` / `end` or `G` Jump to start or end of file. Press `end` a second time to *tail* the current file.
 - `page up` / `page down` or `space` to go to the next / previous page.
 - `←` or `h` / `→` or `l` Scroll left / right.
 - `↑` or `w` or `k` / `↓` or `s` or `j` Move up / down a line.
