@@ -369,8 +369,9 @@ class LogLines(ScrollView, inherit_bindings=False):
                 break_position = 0
 
                 for line_no, break_position, timestamp in timestamps:
-                    append_meta((timestamp, line_no, log_file))
-                    append(break_position)
+                    if self.is_valid_timestamp(timestamp):
+                        append_meta((timestamp, line_no, log_file))
+                        append(break_position)
                 append(log_file.size)
 
                 self.post_message(
@@ -552,8 +553,9 @@ class LogLines(ScrollView, inherit_bindings=False):
         log_file, start, end = self.index_to_span(line_index)
         line = log_file.get_line(start, end)
         timestamp = log_file.timestamp_scanner.scan(line)
-        return timestamp
-
+        if self.is_valid_timestamp(timestamp):
+            return timestamp
+        return None
     def on_unmount(self) -> None:
         self._line_reader.stop()
         self.log_file.close()
