@@ -21,77 +21,14 @@ def parse_timestamp(format: str) -> Callable[[str], datetime | None]:
 
 # Info taken from logmerger project https://github.com/ptmcg/logmerger/blob/main/logmerger/timestamp_wrapper.py
 
+# Refined regular expressions to be more specific and less likely to match non-timestamp numbers
 TIMESTAMP_FORMATS = [
-    TimestampFormat(
-        r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}\s?(?:Z|[+-]\d{4})",
-        datetime.fromisoformat,
-    ),
-    TimestampFormat(
-        r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}",
-        datetime.fromisoformat,
-    ),
-    TimestampFormat(
-        r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\s?(?:Z|[+-]\d{4})",
-        datetime.fromisoformat,
-    ),
-    TimestampFormat(
-        r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}",
-        datetime.fromisoformat,
-    ),
-    TimestampFormat(
-        r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s?(?:Z|[+-]\d{4})",
-        datetime.fromisoformat,
-    ),
-    TimestampFormat(
-        r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}",
-        datetime.fromisoformat,
-    ),
-    TimestampFormat(
-        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2},\d{3}\s?(?:Z|[+-]\d{4})",
-        datetime.fromisoformat,
-    ),
-    TimestampFormat(
-        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2},\d{3}",
-        datetime.fromisoformat,
-    ),
-    TimestampFormat(
-        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\s?(?:Z|[+-]\d{4}Z?)",
-        datetime.fromisoformat,
-    ),
-    TimestampFormat(
-        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}",
-        datetime.fromisoformat,
-    ),
-    TimestampFormat(
-        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\s?(?:Z|[+-]\d{4})",
-        datetime.fromisoformat,
-    ),
-    TimestampFormat(
-        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}",
-        datetime.fromisoformat,
-    ),
-    TimestampFormat(
-        r"[JFMASOND][a-z]{2}\s(\s|\d)\d \d{2}:\d{2}:\d{2}",
-        parse_timestamp("%b %d %H:%M:%S"),
-    ),
-    TimestampFormat(
-        r"\d{2}\/\w+\/\d{4} \d{2}:\d{2}:\d{2}",
-        parse_timestamp(
-            "%d/%b/%Y %H:%M:%S",
-        ),
-    ),
-    TimestampFormat(
-        r"\d{2}\/\w+\/\d{4}:\d{2}:\d{2}:\d{2} [+-]\d{4}",
-        parse_timestamp("%d/%b/%Y:%H:%M:%S %z"),
-    ),
-    TimestampFormat(
-        r"\d{10}\.\d+",
-        lambda s: datetime.fromtimestamp(float(s)),
-    ),
-    TimestampFormat(
-        r"\d{13}",
-        lambda s: datetime.fromtimestamp(int(s)),
-    ),
+    (r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b', lambda x: datetime.fromisoformat(x.replace('Z', '+00:00'))),
+    (r'\b\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\b', lambda x: datetime.strptime(x, '%Y/%m/%d %H:%M:%S')),
+    (r'\b\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}\b', lambda x: datetime.strptime(x, '%d-%m-%Y %H:%M:%S')),
+    (r'\b\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}\b', lambda x: datetime.strptime(x, '%d/%m/%Y %H:%M:%S')),
+    (r'\b\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\b', lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S')),
+    (r'\b\d{2}:\d{2}:\d{2}\b', lambda x: datetime.strptime(x, '%H:%M:%S').time()),
 ]
 
 
@@ -130,6 +67,16 @@ class TimestampScanner:
             if (match := re.search(regex, line)) is not None:
                 try:
                     if (timestamp := parse_callable(match.group(0))) is None:
+                        continue
+                    # Validate the timestamp to ensure it falls within a reasonable range
+                    now = datetime.now()
+                    if isinstance(timestamp, datetime):
+                        if timestamp.year < 1970 or timestamp > now:
+                            continue
+                    elif isinstance(timestamp, time):
+                        # If it's a time object, we can't validate the date part
+                        pass
+                    else:
                         continue
                 except Exception:
                     continue
