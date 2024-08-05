@@ -47,7 +47,7 @@ class RegexLogFormat(LogFormat):
     highlighter = LogHighlighter()
 
     def parse(self, line: str) -> ParseResult | None:
-        match = self.REGEX.fullmatch(line)
+        match = self.REGEX.fullmatch(line[:1000])
         if match is None:
             return None
         groups = match.groupdict()
