@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from importlib.metadata import version
 import os
-import sys
 
 import click
 
@@ -22,6 +21,8 @@ from toolong.ui import UI
 )
 def run(files: list[str], merge: bool, output_merge: str) -> None:
     """View / tail / search log files."""
+    import sys
+
     stdin_tty = sys.__stdin__.isatty()
     if not files and stdin_tty:
         ctx = click.get_current_context()
@@ -38,11 +39,14 @@ def run(files: list[str], merge: bool, output_merge: str) -> None:
         import selectors
         import subprocess
         import tempfile
+        import sys
+        import os
 
-        def request_exit(*args) -> None:
-            """Don't write anything when a signal forces an error."""
-            sys.stderr.write("^C")
+        def request_exit(signum, frame) -> None:
+            """Gracefully handle termination signals."""
+            sys.exit(0)
 
+        # Handle termination signals more gracefully
         signal.signal(signal.SIGINT, request_exit)
         signal.signal(signal.SIGTERM, request_exit)
 
@@ -61,16 +65,25 @@ def run(files: list[str], merge: bool, output_merge: str) -> None:
                     env={**os.environ, "TEXTUAL_ALLOW_SIGNALS": "1"},
                 ) as process:
 
-                    # Current process copies from stdin to the temp file
+                    # Selector to monitor stdin for read events
                     selector = selectors.SelectSelector()
                     selector.register(sys.stdin.fileno(), selectors.EVENT_READ)
 
-                    while process.poll() is None:
-                        for _, event in selector.select(0.1):
-                            if process.poll() is not None:
-                                break
-                            if event & selectors.EVENT_READ:
-                                if line := os.read(sys.stdin.fileno(), 1024 * 64):
-                                    temp_file.write(line)
-                                else:
+                    try:
+                        while process.poll() is None:
+                            for _, event in selector.select(0.1):
+                                if process.poll() is not None:
                                     break
+                                if event & selectors.EVENT_READ:
+                                    line = os.read(sys.stdin.fileno(), 1024 * 64)
+                                    if line:
+                                        temp_file.write(line)
+                                    else:
+                                        break
+                    except KeyboardInterrupt:
+                        request_exit(signal.SIGINT, None)
+
+                    finally:
+                        # Ensure the process is properly terminated
+                        process.terminate()
+                        process.wait()
