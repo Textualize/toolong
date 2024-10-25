@@ -42,10 +42,10 @@ class InfoOverlay(Widget):
     DEFAULT_CSS = """
     InfoOverlay {
         display: none;
-        dock: bottom;        
+        dock: bottom;
         layer: overlay;
         width: 1fr;
-        visibility: hidden;        
+        visibility: hidden;
         offset-y: -1;
         text-style: bold;
     }
@@ -54,7 +54,7 @@ class InfoOverlay(Widget):
         width: 1fr;
         align: center bottom;
     }
-    
+
     InfoOverlay Label {
         visibility: visible;
         width: auto;
@@ -101,9 +101,9 @@ class FooterKey(Label):
         &:light {
             color: $primary;
         }
-        padding: 0 1 0 0;        
+        padding: 0 1 0 0;
         &:hover {
-            text-style: bold underline;                        
+            text-style: bold underline;
         }
     }
     """
@@ -148,9 +148,9 @@ class LogFooter(Widget):
         dock: bottom;
         Horizontal {
             width: 1fr;
-            height: 1;            
+            height: 1;
         }
-        
+
         .key {
             color: $warning;
         }
@@ -161,7 +161,7 @@ class LogFooter(Widget):
             color: $success;
             padding: 0 1 0 0;
         }
-        
+
         .tail {
             padding: 0 1;
             margin: 0 1;
@@ -264,11 +264,11 @@ class LogView(Horizontal):
             }
         }
         LogLines {
-            width: 1fr;            
-        }     
+            width: 1fr;
+        }
         LinePanel {
             width: 50%;
-            display: none;            
+            display: none;
         }
     }
     """

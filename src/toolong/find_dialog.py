@@ -26,8 +26,8 @@ class FindDialog(Widget, can_focus_children=True):
     DEFAULT_CSS = """
     FindDialog {
         layout: horizontal;
-        dock: top; 
-        padding-top: 1;                       
+        dock: top;
+        padding-top: 1;
         width: 1fr;
         height: auto;
         max-height: 70%;
@@ -55,7 +55,7 @@ class FindDialog(Widget, can_focus_children=True):
                 display: none;
             }
         }
-    }    
+    }
     """
     BINDINGS = [
         Binding("escape", "dismiss_find", "Dismiss", key_display="esc", show=False),

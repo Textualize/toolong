@@ -41,6 +41,7 @@ Repository: [https://github.com/Textualize/toolong](https://github.com/Textualiz
 - `ctrl+l` Toggle line numbers.
 - `ctrl+t` Tail current file.
 - `ctrl+c` Exit the app.
+- `y`      Copy (yank) current line in pointer mode
 
 ### Opening Files
 
@@ -62,7 +63,7 @@ $ tl foo.log.2.gz
 
 #### Merging files
 
-Multiple files will open in tabs. 
+Multiple files will open in tabs.
 If you add the `--merge` switch, TooLong will merge all the log files based on their timestamps:
 
 ```bash
@@ -72,8 +73,10 @@ $ tl mysite.log* --merge
 ### Pointer mode
 
 Pointer mode lets you navigate by line.
-To enter pointer mode, press `enter` or click a line. 
+To enter pointer mode, press `enter` or click a line.
 When in pointer mode, the navigation keys will move this pointer rather than scroll the log file.
+
+Press `y` to copy (yank) the current line to the system clipboard.
 
 Press `enter` again or click the line a second time to expand the line in to a new panel.
 
@@ -98,9 +101,9 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 """
 
 TITLE = rf"""
- _______          _                       
+ _______          _
 |__   __|        | |    Built with Textual
-   | | ___   ___ | |     ___  _ __   __ _ 
+   | | ___   ___ | |     ___  _ __   __ _
    | |/ _ \ / _ \| |    / _ \| '_ \ / _` |
    | | (_) | (_) | |___| (_) | | | | (_| |
    |_|\___/ \___/|______\___/|_| |_|\__, |
@@ -138,21 +141,21 @@ class HelpScreen(ModalScreen):
     CSS = """
     HelpScreen VerticalScroll {
         background: $surface;
-        margin: 4 8;        
-        border: heavy $accent;        
-        height: 1fr;        
+        margin: 4 8;
+        border: heavy $accent;
+        height: 1fr;
         .title {
             width: auto;
         }
         scrollbar-gutter: stable;
         Markdown {
             margin:0 2;
-        }        
+        }
         Markdown .code_inline {
             background: $primary-darken-1;
             text-style: bold;
         }
-    }    
+    }
     """
 
     BINDINGS = [

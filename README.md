@@ -10,9 +10,9 @@
 
 A terminal application to view, tail, merge, and search log files (plus JSONL).
 
-<details>  
+<details>
   <summary> 🎬 Viewing a single file </summary>
-    
+
 &nbsp;
 
 <div align="center">
@@ -36,7 +36,7 @@ See [Toolong on Calmcode.io](https://calmcode.io/shorts/toolong.py) for a calmin
 - Support for JSONL files: lines are pretty printed.
 - Opens .bz and .bz2 files automatically.
 - Merges log files by auto detecting timestamps.
-  
+
 
 ## Why?
 
@@ -72,30 +72,30 @@ It is snappy, straightforward to use, and does a lot of the *grunt work* for you
 
 ### Videos
 
-<details>  
+<details>
   <summary> 🎬 Merging multiple (compressed) files </summary>
 &nbsp;
 
 <div align="center">
   <video src="https://github.com/Textualize/tailless/assets/554369/efbbde11-bebf-44ff-8d2b-72a84b542b75" />
 </div>
-    
+
 
 </details>
 
-<details>  
+<details>
   <summary> 🎬 Viewing JSONL files </summary>
 &nbsp;
 
 <div align="center">
   <video src="https://github.com/Textualize/tailless/assets/554369/38936600-34ee-4fe1-9fd3-b1581fc3fa37"  />
 </div>
-    
-    
+
+
 
 </details>
 
-<details>  
+<details>
   <summary> 🎬 Live Tailing a file </summary>
 &nbsp;
 
@@ -120,7 +120,7 @@ You could also install Toolong with Pip:
 pip install toolong
 ```
 
-> [!NOTE] 
+> [!NOTE]
 > If you use pip, you should ideally create a virtual environment to avoid potential dependancy conflicts.
 
 However you install Toolong, the `tl` command will be added to your path:
@@ -167,7 +167,7 @@ tree / | tl
 
 This [guy](https://github.com/willmcgugan). An ex web developer who somehow makes a living writing terminal apps.
 
-    
+
 ---
 
 ## History

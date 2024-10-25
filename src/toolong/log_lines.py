@@ -139,6 +139,7 @@ class LogLines(ScrollView, inherit_bindings=False):
         Binding("pagedown,space", "page_down", "Page Down", show=False),
         Binding("enter", "select", "Select line", show=False),
         Binding("escape", "dismiss", "Dismiss", show=False, priority=True),
+        Binding("y", "copy", "Copy (yank) current selection", show=False, priority=True),
         Binding("m", "navigate(+1, 'm')"),
         Binding("M", "navigate(-1, 'm')"),
         Binding("o", "navigate(+1, 'h')"),
@@ -151,7 +152,7 @@ class LogLines(ScrollView, inherit_bindings=False):
     LogLines {
         scrollbar-gutter: stable;
         overflow: scroll;
-        border: heavy transparent;        
+        border: heavy transparent;
         .loglines--filter-highlight {
             background: $secondary;
             color: auto;
@@ -164,19 +165,19 @@ class LogLines(ScrollView, inherit_bindings=False):
         }
 
         border-subtitle-color: $success;
-        border-subtitle-align: center;        
+        border-subtitle-align: center;
         align: center middle;
 
         &.-scanning {
             tint: $background 30%;
         }
         .loglines--line-numbers {
-            color: $warning 70%;            
+            color: $warning 70%;
         }
         .loglines--line-numbers-active {
-            color: $warning;            
+            color: $warning;
             text-style: bold;
-        }               
+        }
     }
     """
     COMPONENT_CLASSES = {
@@ -905,6 +906,11 @@ class LogLines(ScrollView, inherit_bindings=False):
 
         self.pointer_line = line_no
         self.scroll_pointer_to_center(animate=abs(initial_line_no - line_no) < 100)
+
+    def action_copy(self, **argv):
+        if self.pointer_line:
+            line = self.get_line_from_index(self.pointer_line)
+            self.app.copy_to_clipboard(line)
 
     def watch_tail(self, tail: bool) -> None:
         self.set_class(tail, "-tail")

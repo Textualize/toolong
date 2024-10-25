@@ -11,16 +11,16 @@ class ScanProgressBar(Vertical):
         width: 100%;
         height: auto;
         margin: 2 4;
-        dock: top;                    
+        dock: top;
         padding: 1 2;
-        background: $primary;        
+        background: $primary;
         display: block;
         text-align: center;
         display: none;
-        align: center top;       
+        align: center top;
         ProgressBar {
             margin: 1 0;
-        } 
+        }
     }
 
     LogLines:focus ScanProgressBar.-has-content {

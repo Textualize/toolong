@@ -28,12 +28,12 @@ class LogScreen(Screen):
     CSS = """
     LogScreen {
         layers: overlay;
-        & TabPane {           
+        & TabPane {
             padding: 0;
         }
         & Tabs:focus Underline > .underline--bar {
             color: $accent;
-        }        
+        }
         Underline > .underline--bar {
             color: $panel;
         }

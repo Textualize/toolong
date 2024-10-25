@@ -14,20 +14,20 @@ from textual.widgets import Label, Static
 
 class LineDisplay(Widget):
     DEFAULT_CSS = """
-    LineDisplay {        
+    LineDisplay {
         padding: 0 1;
         margin: 1 0;
         width: auto;
-        height: auto;        
+        height: auto;
         Label {
             width: 1fr;
-        }  
+        }
         .json {
-            width: auto;        
+            width: auto;
         }
         .nl {
             width: auto;
-        }  
+        }
     }
     """
 
@@ -57,10 +57,10 @@ class LineDisplay(Widget):
 class LinePanel(ScrollableContainer):
     DEFAULT_CSS = """
     LinePanel {
-        background: $panel;        
+        background: $panel;
         overflow-y: auto;
         overflow-x: auto;
-        border: blank transparent;                
+        border: blank transparent;
         scrollbar-gutter: stable;
         &:focus {
             border: heavy $accent;
