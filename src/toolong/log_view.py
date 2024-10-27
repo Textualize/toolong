@@ -30,7 +30,6 @@ from toolong.line_panel import LinePanel
 from toolong.watcher import WatcherBase
 from toolong.log_lines import LogLines
 
-
 SPLIT_REGEX = r"[\s/\[\]]"
 
 MAX_DETAIL_LINE_LENGTH = 100_000
@@ -119,7 +118,7 @@ class FooterKey(Label):
         return f"[reverse]{self.key_display}[/reverse] {self.description}"
 
     async def on_click(self) -> None:
-        await self.app.check_bindings(self.key)
+        self.app.simulate_key(self.key)
 
 
 class MetaLabel(Label):
@@ -201,10 +200,10 @@ class LogFooter(Widget):
             with self.app.batch_update():
                 key_container = self.query_one(".key-container")
                 await key_container.query("*").remove()
-                bindings = [
-                    binding
-                    for (_, binding) in self.app.namespace_bindings.values()
-                    if binding.show
+                bindings: list[Binding] = [
+                    binding.binding
+                    for binding in self.app.active_bindings.values()
+                    if binding.binding.show
                 ]
 
                 await key_container.mount_all(
