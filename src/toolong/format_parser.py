@@ -10,7 +10,7 @@ from rich.text import Text
 
 from toolong.highlighter import LogHighlighter
 from toolong import timestamps
-from typing import Optional
+from typing import Optional, Dict, Any
 
 
 ParseResult: TypeAlias = "tuple[Optional[datetime], str, Text]"
@@ -103,7 +103,55 @@ class JSONLogFormat(LogFormat):
         return timestamp, line, text
 
 
+class EliotLogFormat(LogFormat):
+    """Parser for Eliot log format."""
+    
+    def __init__(self):
+        self._task_cache: Dict[str, Dict[str, Any]] = {}
+    
+    def parse(self, line: str) -> ParseResult | None:
+        try:
+            data = json.loads(line)
+            
+            # Check if this is an Eliot log by looking for required fields
+            if not all(key in data for key in ("task_uuid", "task_level", "action_type")):
+                return None
+                
+            timestamp = datetime.fromtimestamp(data["timestamp"]) if "timestamp" in data else None
+            
+            # Create tree-like structure
+            task_uuid = data["task_uuid"]
+            task_level = data["task_level"]
+            action_type = data["action_type"]
+            action_status = data.get("action_status", "unknown")
+            
+            # Format the line for display
+            prefix = "    " * (len(task_level) - 1)
+            if len(task_level) == 1:
+                display = f"{prefix}└── {action_type} ⇒ {action_status}"
+            else:
+                display = f"{prefix}├── {action_type} ⇒ {action_status}"
+            
+            # Create styled text
+            text = Text()
+            text.append(prefix, style="dim")
+            text.append("└── " if len(task_level) == 1 else "├── ", style="bright_black")
+            text.append(action_type, style="cyan")
+            text.append(" ⇒ ", style="bright_black")
+            text.append(action_status, style="green" if action_status == "succeeded" else "yellow")
+            
+            # Add duration if available
+            if "duration" in data:
+                text.append(f" ⧖ {data['duration']:.3f}s", style="blue")
+            
+            return timestamp, display, text
+            
+        except (json.JSONDecodeError, KeyError):
+            return None
+
+
 FORMATS = [
+    EliotLogFormat(),
     JSONLogFormat(),
     CommonLogFormat(),
     CombinedLogFormat(),

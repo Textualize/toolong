@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from asyncio import Lock
+from pathlib import Path
 from datetime import datetime
-
 from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -12,9 +11,8 @@ from textual import events
 from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Label
-
-
-from toolong.scan_progress_bar import ScanProgressBar
+from asyncio import Lock
+import json
 
 from toolong.messages import (
     DismissOverlay,
@@ -22,19 +20,17 @@ from toolong.messages import (
     PendingLines,
     PointerMoved,
     ScanComplete,
-    ScanProgress,
     TailFile,
 )
 from toolong.find_dialog import FindDialog
 from toolong.line_panel import LinePanel
 from toolong.watcher import WatcherBase
 from toolong.log_lines import LogLines
-
+from toolong.eliot_view import EliotView
+from toolong.scan_progress_bar import ScanProgressBar
 
 SPLIT_REGEX = r"[\s/\[\]]"
-
 MAX_DETAIL_LINE_LENGTH = 100_000
-
 
 class InfoOverlay(Widget):
     """Displays text under the lines widget when there are new lines."""
@@ -91,7 +87,6 @@ class InfoOverlay(Widget):
     def on_click(self) -> None:
         self.post_message(TailFile())
 
-
 class FooterKey(Label):
     """Displays a clickable label for a key."""
 
@@ -121,8 +116,8 @@ class FooterKey(Label):
     async def on_click(self) -> None:
         await self.app.check_bindings(self.key)
 
-
 class MetaLabel(Label):
+    """Label for metadata that can be clicked to goto."""
 
     DEFAULT_CSS = """
     MetaLabel {
@@ -135,7 +130,6 @@ class MetaLabel(Label):
 
     def on_click(self) -> None:
         self.post_message(Goto())
-
 
 class LogFooter(Widget):
     """Shows a footer with information about the file and keys."""
@@ -252,7 +246,6 @@ class LogFooter(Widget):
     def watch_timestamp(self, timestamp: datetime | None) -> None:
         self.update_meta()
 
-
 class LogView(Horizontal):
     """Widget that contains log lines and associated widgets."""
 
@@ -281,169 +274,194 @@ class LogView(Horizontal):
         Binding("ctrl+g", "goto", "Go to", key_display="^g"),
     ]
 
+    show_line_numbers: reactive[bool] = reactive(False)
     show_find: reactive[bool] = reactive(False)
     show_panel: reactive[bool] = reactive(False)
-    show_line_numbers: reactive[bool] = reactive(False)
     tail: reactive[bool] = reactive(False)
     can_tail: reactive[bool] = reactive(True)
 
-    def __init__(
-        self, file_paths: list[str], watcher: WatcherBase, can_tail: bool = True
-    ) -> None:
+    def __init__(self, file_paths: list[str], watcher: WatcherBase, can_tail: bool = True) -> None:
+        super().__init__()
         self.file_paths = file_paths
         self.watcher = watcher
-        super().__init__()
+        self.eliot_view: EliotView | None = None
         self.can_tail = can_tail
 
+    def _is_eliot_log(self, line: str) -> bool:
+        """Check if a line is an Eliot log entry."""
+        try:
+            data = json.loads(line)
+            return all(key in data for key in ("task_uuid", "task_level", "action_type"))
+        except (json.JSONDecodeError, KeyError):
+            return False
+
     def compose(self) -> ComposeResult:
-        yield (
-            log_lines := LogLines(self.watcher, self.file_paths).data_bind(
+        """Create child widgets."""
+        yield ScanProgressBar()
+
+        # Check first line of each file to determine if it's an Eliot log
+        is_eliot = False
+        for path in self.file_paths:
+            try:
+                with open(path) as f:
+                    first_line = f.readline().strip()
+                    if first_line and self._is_eliot_log(first_line):
+                        is_eliot = True
+                        break
+            except (IOError, OSError):
+                continue
+
+        if is_eliot:
+            # For Eliot logs, use only the tree view
+            self.eliot_view = EliotView()
+            self.eliot_view.file_paths = self.file_paths
+            yield self.eliot_view
+        else:
+            # For regular logs, use the full log view functionality
+            log_lines = LogLines(self.watcher, self.file_paths)
+            yield log_lines.data_bind(
                 LogView.tail,
                 LogView.show_line_numbers,
                 LogView.show_find,
                 LogView.can_tail,
             )
-        )
-        yield LinePanel()
-        yield FindDialog(log_lines._suggester)
-        yield InfoOverlay().data_bind(LogView.tail)
-        yield LogFooter().data_bind(LogView.tail, LogView.can_tail)
+            yield LinePanel()
+            yield FindDialog(log_lines._suggester)
+            yield InfoOverlay().data_bind(LogView.tail)
+            yield LogFooter().data_bind(LogView.tail, LogView.can_tail)
 
     @on(FindDialog.Update)
     def filter_dialog_update(self, event: FindDialog.Update) -> None:
-        log_lines = self.query_one(LogLines)
-        log_lines.find = event.find
-        log_lines.regex = event.regex
-        log_lines.case_sensitive = event.case_sensitive
+        if not self.eliot_view:
+            log_lines = self.query_one(LogLines)
+            log_lines.find = event.find
+            log_lines.regex = event.regex
+            log_lines.case_sensitive = event.case_sensitive
 
     async def watch_show_find(self, show_find: bool) -> None:
-        if not self.is_mounted:
+        if not self.is_mounted or self.eliot_view:
             return
         filter_dialog = self.query_one(FindDialog)
-        filter_dialog.set_class(show_find, "visible")
+        filter_dialog.display = show_find
         if show_find:
             filter_dialog.focus_input()
         else:
             self.query_one(LogLines).focus()
 
     async def watch_show_panel(self, show_panel: bool) -> None:
-        self.set_class(show_panel, "show-panel")
-        await self.update_panel()
+        if not self.eliot_view:
+            self.set_class(show_panel, "show-panel")
+            await self.update_panel()
 
     @on(FindDialog.Dismiss)
     def dismiss_filter_dialog(self, event: FindDialog.Dismiss) -> None:
-        event.stop()
-        self.show_find = False
+        if not self.eliot_view:
+            self.show_find = False
+            event.stop()
 
     @on(FindDialog.MovePointer)
     def move_pointer(self, event: FindDialog.MovePointer) -> None:
-        event.stop()
-        log_lines = self.query_one(LogLines)
-        log_lines.advance_search(event.direction)
+        if not self.eliot_view:
+            event.stop()
+            self.query_one(LogLines).advance_search(event.direction)
 
     @on(FindDialog.SelectLine)
     def select_line(self) -> None:
-        self.show_panel = not self.show_panel
+        if not self.eliot_view:
+            self.show_panel = not self.show_panel
 
     @on(DismissOverlay)
     def dismiss_overlay(self) -> None:
-        if self.show_find:
-            self.show_find = False
-        elif self.show_panel:
-            self.show_panel = False
-        else:
-            self.query_one(LogLines).pointer_line = None
+        if not self.eliot_view:
+            if self.show_find:
+                self.show_find = False
+            elif self.show_panel:
+                self.show_panel = False
+            else:
+                setattr(self.query_one(LogLines), 'pointer_line', None)
 
     @on(TailFile)
     def on_tail_file(self, event: TailFile) -> None:
-        self.tail = event.tail
-        event.stop()
+        if not self.eliot_view:
+            self.tail = True
+            event.stop()
 
     async def update_panel(self) -> None:
-        if not self.show_panel:
+        if not self.show_panel or self.eliot_view is not None:
             return
         pointer_line = self.query_one(LogLines).pointer_line
         if pointer_line is not None:
-            line, text, timestamp = self.query_one(LogLines).get_text(
+            panel = self.query_one(LinePanel)
+            log_lines = self.query_one(LogLines)
+            line, text, timestamp = log_lines.get_text(
                 pointer_line,
                 block=True,
                 abbreviate=True,
                 max_line_length=MAX_DETAIL_LINE_LENGTH,
             )
-            await self.query_one(LinePanel).update(line, text, timestamp)
+            await panel.update(line, text, timestamp)
 
     @on(PointerMoved)
     async def pointer_moved(self, event: PointerMoved):
-        if event.pointer_line is None:
-            self.show_panel = False
-        if self.show_panel:
-            await self.update_panel()
+        if not self.eliot_view:
+            if event.pointer_line is None:
+                self.show_panel = False
+            if self.show_panel:
+                await self.update_panel()
 
-        log_lines = self.query_one(LogLines)
-        pointer_line = (
-            log_lines.scroll_offset.y
-            if event.pointer_line is None
-            else event.pointer_line
-        )
-        log_file, _, _ = log_lines.index_to_span(pointer_line)
-        log_footer = self.query_one(LogFooter)
-        log_footer.line_no = pointer_line
-        if len(log_lines.log_files) > 1:
-            log_footer.filename = log_file.name
-
-        timestamp = log_lines.get_timestamp(pointer_line)
-        log_footer.timestamp = timestamp
+            log_lines = self.query_one(LogLines)
+            pointer_line = log_lines.scroll_offset.y if event.pointer_line is None else event.pointer_line
+            log_file, _, _ = log_lines.index_to_span(pointer_line)
+            log_footer = self.query_one(LogFooter)
+            log_footer.line_no = pointer_line
+            if len(log_lines.log_files) > 1:
+                log_footer.filename = log_file.name
+            log_footer.timestamp = log_lines.get_timestamp(pointer_line)
 
     @on(PendingLines)
     def on_pending_lines(self, event: PendingLines) -> None:
-        if self.app._exit:
-            return
-        event.stop()
-        self.query_one(InfoOverlay).message = f"+{event.count:,} lines"
-
-    @on(ScanProgress)
-    def on_scan_progress(self, event: ScanProgress):
-        event.stop()
-        scan_progress_bar = self.query_one(ScanProgressBar)
-        scan_progress_bar.message = event.message
-        scan_progress_bar.complete = event.complete
+        if not self.eliot_view and not self.tail:
+            info = self.query_one(InfoOverlay)
+            info.message = f"{event.count} new line{'s' if event.count > 1 else ''}"
 
     @on(ScanComplete)
     async def on_scan_complete(self, event: ScanComplete) -> None:
-        self.query_one(ScanProgressBar).remove()
-        log_lines = self.query_one(LogLines)
-        log_lines.loading = False
-        self.query_one("LogLines").remove_class("-scanning")
-        self.post_message(PointerMoved(log_lines.pointer_line))
-        self.tail = True
+        try:
+            progress_bar = self.query_one(ScanProgressBar)
+            if progress_bar is not None:
+                progress_bar.remove()
+        except Exception:
+            pass  # Progress bar might already be removed
 
-        footer = self.query_one(LogFooter)
-        footer.call_after_refresh(footer.mount_keys)
+        if self.eliot_view is not None:
+            self.eliot_view.tree.loading = False
+            self.eliot_view.tree.remove_class("-scanning")
+        else:
+            log_lines = self.query_one(LogLines)
+            log_lines.loading = False
+            log_lines.remove_class("-scanning")
+            self.post_message(PointerMoved(log_lines.pointer_line))
+            self.tail = True
+            self.query_one(LogFooter).can_tail = True
 
     @on(events.DescendantFocus)
     @on(events.DescendantBlur)
     def on_descendant_focus(self, event: events.DescendantBlur) -> None:
-        self.set_class(isinstance(self.screen.focused, LogLines), "lines-view")
+        focused = self.screen.focused
+        self.set_class(
+            isinstance(focused, (LogLines if not self.eliot_view else EliotView)),
+            "lines-view" if not self.eliot_view else "tree-view"
+        )
 
     def action_toggle_tail(self) -> None:
-        if not self.can_tail:
-            self.notify("Can't tail merged files", title="Tail", severity="error")
-        else:
+        if not self.eliot_view and self.can_tail:
             self.tail = not self.tail
 
     def action_show_find_dialog(self) -> None:
-        find_dialog = self.query_one(FindDialog)
-        if not self.show_find or not any(
-            input.has_focus for input in find_dialog.query("Input")
-        ):
+        if not self.eliot_view:
             self.show_find = True
-            find_dialog.focus_input()
-
-    @on(Goto)
-    def on_goto(self) -> None:
-        self.action_goto()
 
     def action_goto(self) -> None:
-        from toolong.goto_screen import GotoScreen
-
-        self.app.push_screen(GotoScreen(self.query_one(LogLines)))
+        if not self.eliot_view:
+            from toolong.goto_screen import GotoScreen
+            self.app.push_screen(GotoScreen(self.query_one(LogLines)))

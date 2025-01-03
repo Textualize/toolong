@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import locale
-
 from pathlib import Path
 
 from rich import terminal_theme
@@ -10,6 +9,7 @@ from textual.binding import Binding
 from textual.lazy import Lazy
 from textual.screen import Screen
 from textual.widgets import TabbedContent, TabPane
+from textual.css.query import NoMatches
 
 from toolong.log_view import LogView
 from toolong.watcher import get_watcher
@@ -20,6 +20,7 @@ locale.setlocale(locale.LC_ALL, "")
 
 
 class LogScreen(Screen):
+    """Shows log files."""
 
     BINDINGS = [
         Binding("f1", "help", "Help"),
@@ -41,35 +42,35 @@ class LogScreen(Screen):
     """
 
     def compose(self) -> ComposeResult:
+        """Create child widgets."""
         assert isinstance(self.app, UI)
         with TabbedContent():
-            if self.app.merge and len(self.app.file_paths) > 1:
-                tab_name = " + ".join(Path(path).name for path in self.app.file_paths)
-                with TabPane(tab_name):
-                    yield Lazy(
-                        LogView(
-                            self.app.file_paths,
-                            self.app.watcher,
-                            can_tail=False,
-                        )
+            if len(self.app.file_paths) > 1:
+                with TabPane("All"):
+                    yield LogView(
+                        self.app.file_paths,
+                        self.app.watcher,
                     )
-            else:
-                for path in self.app.file_paths:
-                    with TabPane(path):
-                        yield Lazy(
-                            LogView(
-                                [path],
-                                self.app.watcher,
-                                can_tail=True,
-                            )
-                        )
+            for path in self.app.file_paths:
+                with TabPane(path):
+                    yield LogView(
+                        [path],
+                        self.app.watcher,
+                    )
 
-    def on_mount(self) -> None:
+    async def on_mount(self) -> None:
+        """Handle mount."""
         assert isinstance(self.app, UI)
         self.query("TabbedContent Tabs").set(display=len(self.query(TabPane)) > 1)
         active_pane = self.query_one(TabbedContent).active_pane
         if active_pane is not None:
-            active_pane.query("LogView > LogLines").focus()
+            try:
+                active_pane.query_one("LogView > LogLines").focus()
+            except NoMatches:
+                try:
+                    active_pane.query_one("LogView > EliotTree").focus()
+                except NoMatches:
+                    pass
 
     def action_help(self) -> None:
         self.app.push_screen(HelpScreen())
@@ -121,7 +122,13 @@ class UI(App):
     async def on_mount(self) -> None:
         self.ansi_theme_dark = terminal_theme.DIMMED_MONOKAI
         await self.push_screen(LogScreen())
-        self.screen.query("LogLines").focus()
+        try:
+            self.screen.query_one("LogLines").focus()
+        except NoMatches:
+            try:
+                self.screen.query_one("EliotTree").focus()
+            except NoMatches:
+                pass
         self.watcher.start()
 
     def on_unmount(self) -> None:
