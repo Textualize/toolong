@@ -21,6 +21,7 @@ textual-dev = "^1.4.0"
 
 [tool.poetry.scripts]
 tl = "toolong.cli:run"
+toolong = "toolong.cli:run"
 
 [build-system]
 requires = ["poetry-core"]
