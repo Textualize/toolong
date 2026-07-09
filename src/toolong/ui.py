@@ -23,6 +23,7 @@ class LogScreen(Screen):
 
     BINDINGS = [
         Binding("f1", "help", "Help"),
+        Binding("ctrl+z", "suspend_process", "Suspend", key_display="^z"),
     ]
 
     CSS = """
