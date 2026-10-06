@@ -94,20 +94,29 @@ class LineReader(Thread):
             except Empty:
                 continue
             else:
-                self.pending.discard(request)
-                log_file, index, start, end = request
-                self.queue.task_done()
-                if self.exit_event.is_set() or log_file is None:
-                    break
-                log_lines.post_message(
-                    LineRead(
-                        index,
-                        log_file,
-                        start,
-                        end,
-                        log_file.get_line(start, end),
+                # Drain the queue to get the most recent batch of requests
+                batch = [request]
+                try:
+                    while True:
+                        batch.append(self.queue.get_nowait())
+                except Empty:
+                    pass
+                # Process all drained requests
+                for req in batch:
+                    self.pending.discard(req)
+                    log_file, index, start, end = req
+                    self.queue.task_done()
+                    if self.exit_event.is_set() or log_file is None:
+                        return
+                    log_lines.post_message(
+                        LineRead(
+                            index,
+                            log_file,
+                            start,
+                            end,
+                            log_file.get_line(start, end),
+                        )
                     )
-                )
 
 
 class SearchSuggester(Suggester):
@@ -151,16 +160,12 @@ class LogLines(ScrollView, inherit_bindings=False):
     LogLines {
         scrollbar-gutter: stable;
         overflow: scroll;
-        border: heavy transparent;        
         .loglines--filter-highlight {
             background: $secondary;
             color: auto;
         }
         .loglines--pointer-highlight {
             background: $primary;
-        }
-        &:focus {
-            border: heavy $accent;
         }
 
         border-subtitle-color: $success;
@@ -910,9 +915,9 @@ class LogLines(ScrollView, inherit_bindings=False):
         self.set_class(tail, "-tail")
         if tail:
             self.update_line_count()
-            self.scroll_to(y=self.max_scroll_y, animate=False)
-            if tail:
-                self.pointer_line = None
+            self.update_virtual_size()
+            self.scroll_to(y=self.max_scroll_y, animate=False, force=True)
+            self.pointer_line = None
 
     def update_line_count(self) -> None:
         line_count = len(self._line_breaks.get(self.log_file, []))

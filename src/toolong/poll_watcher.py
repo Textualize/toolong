@@ -28,6 +28,7 @@ class PollWatcher(WatcherBase):
                     watched_file.error_callback(error)
                     self._file_descriptors.pop(fileno, None)
                     break
+            if successful_read:
+                time.sleep(0.01)
             else:
-                if not successful_read:
-                    time.sleep(0.05)
+                time.sleep(0.05)

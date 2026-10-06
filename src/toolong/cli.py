@@ -73,4 +73,8 @@ def run(files: list[str], merge: bool, output_merge: str) -> None:
                                 if line := os.read(sys.stdin.fileno(), 1024 * 64):
                                     temp_file.write(line)
                                 else:
+                                    # EOF: stdin stays readable forever, so
+                                    # stop polling it and wait for the UI.
+                                    selector.unregister(sys.stdin.fileno())
+                                    process.wait()
                                     break

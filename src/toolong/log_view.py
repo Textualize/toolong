@@ -119,7 +119,31 @@ class FooterKey(Label):
         return f"[reverse]{self.key_display}[/reverse] {self.description}"
 
     async def on_click(self) -> None:
-        await self.app.check_bindings(self.key)
+        await self.app.action_simulate_key(self.key)
+
+
+class QuitButton(Label):
+    """Displays a clickable quit button."""
+
+    DEFAULT_CSS = """
+    QuitButton {
+        color: $success;
+        &:light {
+            color: $primary;
+        }
+        padding: 0 1 0 0;
+        &:hover {
+            text-style: bold underline;
+        }
+    }
+    """
+    DEFAULT_CLASSES = "key"
+
+    def render(self) -> str:
+        return "[reverse] X [/reverse] Close"
+
+    def on_click(self) -> None:
+        self.app.exit()
 
 
 class MetaLabel(Label):
@@ -188,6 +212,7 @@ class LogFooter(Widget):
     def compose(self) -> ComposeResult:
         with Horizontal(classes="key-container"):
             pass
+        yield QuitButton()
         yield Label("TAIL", classes="tail")
         yield MetaLabel("", classes="meta")
 
@@ -203,7 +228,7 @@ class LogFooter(Widget):
                 await key_container.query("*").remove()
                 bindings = [
                     binding
-                    for (_, binding) in self.app.namespace_bindings.values()
+                    for (_, binding, *_rest) in self.app.active_bindings.values()
                     if binding.show
                 ]
 
@@ -267,7 +292,9 @@ class LogView(Horizontal):
             width: 1fr;            
         }     
         LinePanel {
-            width: 50%;
+            width: 1fr;
+            height: 50%;
+            dock: top;
             display: none;            
         }
     }
@@ -374,7 +401,7 @@ class LogView(Horizontal):
 
     @on(PointerMoved)
     async def pointer_moved(self, event: PointerMoved):
-        if event.pointer_line is None:
+        if event.pointer_line is None and not self.tail:
             self.show_panel = False
         if self.show_panel:
             await self.update_panel()
